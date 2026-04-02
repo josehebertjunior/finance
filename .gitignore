@@ -1,0 +1,30 @@
+# Binaries
+[Oo]bj/
+[Bb]in/
+*.dll
+*.exe
+*.pdb
+
+# Dependencies
+node_modules/
+dist/
+out-tsc/
+.angular/
+
+# Visual Studio / VS Code
+.vscode/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Macs
+.DS_Store
+
+# Environments
+.env
+
+# Logs
+logs/
+*.log

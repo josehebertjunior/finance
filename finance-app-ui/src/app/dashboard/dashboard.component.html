@@ -1,0 +1,82 @@
+<div style="display: flex; gap: 2rem; margin-bottom: 2rem; flex-wrap: wrap;">
+  <div class="glass-panel" style="flex: 2; min-width: 300px; padding: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <h2 style="margin: 0; margin-bottom: 0.75rem;">Resumo Geral</h2>
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        
+        <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+          <label style="color: var(--text-secondary); font-size: 0.85rem;">Meses Visíveis (Segure CTRL para vários):</label>
+          <select multiple [(ngModel)]="selectedMonths" (change)="onFilterChange()" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: white; padding: 0.25rem; border-radius: 4px; min-width: 180px; height: 100px;">
+            <option *ngFor="let m of availableMonths" [value]="m.id">{{m.label | uppercase}}</option>
+          </select>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+          <label style="color: var(--text-secondary); font-size: 0.85rem;">Filtrar Pessoas (Deixe branco para todos):</label>
+          <select multiple [(ngModel)]="selectedPersons" (change)="onFilterChange()" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: white; padding: 0.25rem; border-radius: 4px; min-width: 150px; height: 100px;">
+            <option *ngFor="let p of availablePersons" [value]="p.id">{{p.name}}</option>
+          </select>
+        </div>
+
+      </div>
+    </div>
+    <button class="primary" routerLink="/new" style="padding: 0.75rem 1.25rem; align-self: center;">Lançar Nova Conta</button>
+  </div>
+
+  <div class="glass-panel" style="flex: 1; min-width: 250px; padding: 1.5rem; display: flex; flex-direction: column; justify-content: center; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2);">
+    <h3 style="margin: 0; color: var(--success); display: flex; align-items: center; gap: 0.5rem;">
+      <span>💰</span> Saldo Poupança
+    </h3>
+    <div style="font-size: 2rem; font-weight: bold; margin-top: 0.5rem; color: white;">
+      R$ {{ savingsBalance | number:'1.2-2' }}
+    </div>
+  </div>
+</div>
+
+<div class="months-container" style="display: flex; gap: 2rem; overflow-x: auto; padding-bottom: 1rem;">
+  <div *ngFor="let month of months" class="month-column glass-panel" style="flex: 1; min-width: 350px; padding: 1.5rem;">
+    <h3 style="text-align: center; margin-bottom: 1.5rem; text-transform: uppercase; background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 8px;">
+      {{month.label}}
+    </h3>
+    
+    <div style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+      <div style="display: flex; justify-content: space-between; color: var(--success); font-weight: 500;">
+        <span>Entradas:</span>
+        <span>R$ {{month.totalIncome | number:'1.2-2'}}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; color: var(--danger); font-weight: 500; margin-top: 0.5rem;">
+        <span>Saídas:</span>
+        <span>R$ {{month.totalExpense | number:'1.2-2'}}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; margin-top: 1rem;" 
+           [ngStyle]="{'color': month.total >= 0 ? 'var(--success)' : 'var(--danger)'}">
+        <span>Total Mensal:</span>
+        <span>R$ {{month.total | number:'1.2-2'}}</span>
+      </div>
+    </div>
+
+    <div *ngIf="month.transactions.length === 0" style="text-align: center; color: var(--text-secondary); padding: 2rem 0;">
+      Nenhum lançamento.
+    </div>
+
+    <div *ngFor="let t of month.transactions" style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid rgba(255,255,255,0.02);">
+      <div style="display: flex; flex-direction: column; flex: 1;">
+        <span style="font-weight: 500; font-size: 0.95rem;">
+          {{t.description}} 
+          <span *ngIf="t.installmentTotal > 1" style="font-size: 0.8rem; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 10px; margin-left: 6px;">{{t.installmentCurrent}}/{{t.installmentTotal}}</span>
+        </span>
+        <span style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">
+          {{t.paymentMethod?.name || 'Débito'}} <span *ngIf="t.person"> | {{t.person?.name}}</span>
+        </span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 1rem;">
+        <span [ngStyle]="{'color': t.type === 0 || t.type === 3 ? 'var(--success)' : (t.type === 1 ? 'var(--danger)' : 'var(--accent-primary)')}" style="font-weight: 600;">
+          {{ t.type === 0 || t.type === 3 ? '+' : '-' }} R$ {{t.amount | number:'1.2-2'}}
+        </span>
+        <button (click)="deleteTransaction(t.id)" style="background: transparent; color: var(--text-secondary); padding: 0.25rem; font-size: 1.2rem; margin-left: 0.5rem; cursor: pointer;" title="Excluir">
+          &times;
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

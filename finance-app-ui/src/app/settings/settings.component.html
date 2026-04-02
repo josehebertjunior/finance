@@ -1,0 +1,66 @@
+<div class="glass-panel" style="max-width: 800px; margin: 0 auto; padding: 2rem;">
+  <h2 style="margin-bottom: 2rem; text-align: center;">Configurações e Cadastros</h2>
+
+  <div style="display: flex; gap: 1rem; margin-bottom: 2rem; justify-content: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+    <button [ngStyle]="{'background': activeTab === 'persons' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.05)', 'color': 'white'}" (click)="activeTab = 'persons'" style="padding: 0.75rem 1.5rem;">Pessoas</button>
+    <button [ngStyle]="{'background': activeTab === 'methods' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.05)', 'color': 'white'}" (click)="activeTab = 'methods'" style="padding: 0.75rem 1.5rem;">Métodos de Pagamento</button>
+    <button [ngStyle]="{'background': activeTab === 'categories' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.05)', 'color': 'white'}" (click)="activeTab = 'categories'" style="padding: 0.75rem 1.5rem;">Categorias</button>
+  </div>
+
+  <div>
+    <!-- Persons -->
+    <section *ngIf="activeTab === 'persons'">
+      <h3 style="margin-bottom: 1rem;">Membros Cadastrados</h3>
+      <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+        <input type="text" [(ngModel)]="newPerson.name" placeholder="Nome da pessoa" style="flex: 1;">
+        <button class="primary" (click)="addPerson()">Adicionar</button>
+      </div>
+      <ul style="list-style: none; padding: 0;">
+        <li *ngFor="let p of persons" style="padding: 0.75rem 0; display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--text-secondary);">
+          <span>{{p.name}}</span>
+          <button (click)="deletePerson(p.id)" style="background: transparent; color: var(--danger); font-size: 1.2rem; padding: 0 0.5rem; cursor: pointer;">&times;</button>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Payment Methods -->
+    <section *ngIf="activeTab === 'methods'">
+      <h3 style="margin-bottom: 1rem;">Meios de Pagamento Disponíveis</h3>
+      <div style="display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap;">
+        <input type="text" [(ngModel)]="newPaymentMethod.name" placeholder="Ex: Nubank, PicPay, Dinheiro" style="flex: 1; min-width: 200px;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; color: white;">
+          <input type="checkbox" [(ngModel)]="newPaymentMethod.isCreditCard" style="width: 18px; height: 18px; accent-color: var(--accent-primary);"> É Cartão de Crédito?
+        </label>
+        <button class="primary" (click)="addPaymentMethod()">Adicionar</button>
+      </div>
+      <ul style="list-style: none; padding: 0;">
+        <li *ngFor="let pm of paymentMethods" style="padding: 0.75rem 0; display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--text-secondary);">
+          <span>
+            {{pm.name}}
+            <span *ngIf="pm.isCreditCard" style="font-size: 0.75rem; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; margin-left: 0.5rem; color: white;">Crédito</span>
+          </span>
+          <button (click)="deletePaymentMethod(pm.id)" style="background: transparent; color: var(--danger); font-size: 1.2rem; padding: 0 0.5rem; cursor: pointer;">&times;</button>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Categories -->
+    <section *ngIf="activeTab === 'categories'">
+      <h3 style="margin-bottom: 1rem;">Categorias de Lançamento</h3>
+      <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+        <input type="text" [(ngModel)]="newCategory.name" placeholder="Ex: Mercado, Carro, Moradia" style="flex: 1;">
+        <input type="color" [(ngModel)]="newCategory.colorHex" style="height: 38px; width: 50px; padding: 0; cursor: pointer; border: none; background: transparent;">
+        <button class="primary" (click)="addCategory()">Adicionar</button>
+      </div>
+      <ul style="list-style: none; padding: 0;">
+        <li *ngFor="let c of categories" style="padding: 0.75rem 0; display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--text-secondary);">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div [style.background]="c.colorHex" style="width: 16px; height: 16px; border-radius: 50%;"></div>
+            {{c.name}}
+          </div>
+          <button (click)="deleteCategory(c.id)" style="background: transparent; color: var(--danger); font-size: 1.2rem; padding: 0 0.5rem; cursor: pointer;">&times;</button>
+        </li>
+      </ul>
+    </section>
+  </div>
+</div>

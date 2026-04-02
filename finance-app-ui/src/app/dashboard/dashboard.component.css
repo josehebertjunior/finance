@@ -1,0 +1,12 @@
+/* Scoped styles */
+.months-container::-webkit-scrollbar {
+  height: 8px;
+}
+.months-container::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.1);
+  border-radius: 4px;
+}
+.months-container::-webkit-scrollbar-thumb {
+  background: var(--accent-primary);
+  border-radius: 4px;
+}
