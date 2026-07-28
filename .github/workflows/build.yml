@@ -1,0 +1,44 @@
+name: Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-api:
+    name: Build API (.NET)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./FinanceApp.Api
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+  build-ui:
+    name: Build UI (Angular)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./finance-app-ui
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: finance-app-ui/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npx ng build --configuration production

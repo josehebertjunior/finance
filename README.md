@@ -1,5 +1,7 @@
 # 💰 Finance App
 
+![Build](https://github.com/josehebertjunior/finance/actions/workflows/build.yml/badge.svg)
+
 Aplicação full stack para controle de receitas e despesas pessoais, construída com **.NET** no back-end e **Angular** no front-end.
 
 🚧 **Status:** em desenvolvimento
@@ -21,12 +23,30 @@ O Finance App nasceu da necessidade de ter um controle simples e centralizado de
 
 ## Funcionalidades
 
-- [ ] Cadastro de receitas e despesas
-- [ ] Listagem e filtro por período/categoria
-- [ ] Cálculo de saldo e resumo financeiro
+- [x] Cadastro de receitas e despesas, incluindo lançamentos parcelados
+- [x] Edição e exclusão de lançamentos
+- [x] Dashboard com filtro por mês e por pessoa
+- [x] Cálculo de saldo por período (entradas − saídas)
+- [x] Controle de saldo de reserva/poupança (depósitos e retiradas)
+- [x] Cadastro de categorias, pessoas e formas de pagamento
+- [x] Resumo de gastos agrupado por categoria (`/api/summary/by-category`)
+- [ ] Gráficos visuais no dashboard
 - [ ] Autenticação de usuário
+- [ ] Deploy público
 
-> Ajuste esta lista para refletir exatamente o que já está implementado.
+## Principais endpoints
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/transactions?year=&month=` | Lista lançamentos, com filtro opcional por mês |
+| POST | `/api/transactions` | Cria um lançamento (suporta parcelamento) |
+| PUT | `/api/transactions/{id}` | Edita um lançamento |
+| DELETE | `/api/transactions/{id}` | Remove um lançamento |
+| GET | `/api/summary/by-category?year=&month=` | Total de despesas agrupado por categoria |
+| GET | `/api/savings/balance` | Saldo acumulado de reserva |
+| GET/POST/PUT/DELETE | `/api/categories`, `/api/persons`, `/api/paymentmethods` | CRUD dos cadastros de apoio |
+
+Documentação interativa via Swagger em `/swagger` (ambiente de desenvolvimento).
 
 ## Como executar localmente
 
@@ -47,9 +67,9 @@ Acesse em `http://localhost:4200`.
 
 ## Roadmap
 
-- [ ] Finalizar CRUD de transações
-- [ ] Dashboard com gráficos de gastos por categoria
-- [ ] Deploy de uma versão demo pública
+- [ ] Gráficos no dashboard consumindo o endpoint de resumo por categoria
+- [ ] Autenticação simples (JWT)
+- [ ] Deploy de uma versão demo pública (API + front-end)
 
 ## Autor
 

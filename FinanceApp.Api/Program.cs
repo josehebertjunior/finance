@@ -45,3 +45,5 @@ app.UseCors("AllowAngularDev");
 app.MapApiEndpoints();
 
 app.Run();
+
+public partial class Program { }
