@@ -1,0 +1,85 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0d1220;
+  color: #e6e8ff;
+  --surface: rgba(18, 25, 46, 0.92);
+  --surface-strong: rgba(255, 255, 255, 0.08);
+  --accent-primary: #7c5cff;
+  --accent-secondary: #00c7ff;
+  --text-muted: #98a2b3;
+}
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: radial-gradient(circle at top, rgba(124, 92, 255, 0.18), transparent 32%),
+              radial-gradient(circle at 80% 10%, rgba(0, 199, 255, 0.12), transparent 24%),
+              #0d1220;
+}
+
+body {
+  color: inherit;
+}
+
+main {
+  min-height: 100vh;
+}
+
+.app-nav {
+  padding: 1rem 2rem;
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  background: rgba(14, 20, 44, 0.85);
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.app-nav .brand {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.app-nav .brand span {
+  color: var(--accent-primary);
+}
+
+.app-nav .nav-links a {
+  color: white;
+  margin-right: 1.5rem;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.app-nav .nav-links a:last-child {
+  margin-right: 0;
+}
+
+.app-nav .nav-links a:hover {
+  color: var(--accent-secondary);
+}
+
+.app-shell {
+  padding: 0 2rem 3rem;
+}
+
+@media (max-width: 720px) {
+  .app-nav {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .app-nav .nav-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+}

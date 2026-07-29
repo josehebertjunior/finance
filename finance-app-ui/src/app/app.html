@@ -1,15 +1,15 @@
 <main>
-  <nav class="glass-panel" style="padding: 1rem 2rem; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
-    <h2 style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-      <span style="color: var(--accent-primary);">◆</span> Finanças
+  <nav *ngIf="showNav()" class="glass-panel app-nav">
+    <h2 class="brand">
+      <span>◆</span> Finanças
     </h2>
-    <div>
-      <a routerLink="/" style="color: white; margin-right: 1.5rem; text-decoration: none; font-weight: 500; transition: color 0.2s;">Dashboard</a>
-      <a routerLink="/new" style="color: white; margin-right: 1.5rem; text-decoration: none; font-weight: 500; transition: color 0.2s;">Novo Lançamento</a>
-      <a routerLink="/settings" style="color: white; text-decoration: none; font-weight: 500; transition: color 0.2s;">Cadastros</a>
+    <div class="nav-links">
+      <a routerLink="/">Dashboard</a>
+      <a routerLink="/new">Novo Lançamento</a>
+      <a routerLink="/settings">Cadastros</a>
     </div>
   </nav>
-  <section style="padding: 0 2rem;">
+  <section class="app-shell">
     <router-outlet></router-outlet>
   </section>
 </main>

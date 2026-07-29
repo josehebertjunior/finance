@@ -1,0 +1,4 @@
+.login { max-width: 360px; margin: 24px auto; }
+label { display:block; margin-top:8px }
+input { width:100%; padding:8px; box-sizing:border-box }
+button { margin-top:12px }

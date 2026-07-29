@@ -27,6 +27,10 @@ public class Transaction
     public int? InstallmentCurrent { get; set; }
     public int? InstallmentTotal { get; set; }
     public Guid? InstallmentGroupId { get; set; }
+
+    // Ownership
+    public string OwnerId { get; set; } = string.Empty;
+    public ApplicationUser? Owner { get; set; }
 }
 
 public enum TransactionType

@@ -1,0 +1,54 @@
+<div class="auth-shell">
+  <div class="auth-card glass-panel">
+    <div class="auth-header">
+      <div>
+        <h1>Finanças Pessoais</h1>
+        <p>Controle seus gastos, acompanhe suas receitas e organize seu orçamento.</p>
+      </div>
+      <nav class="auth-tabs">
+        <button type="button" [class.active]="view() === 'login'" (click)="switchView('login')">Login</button>
+        <button type="button" [class.active]="view() === 'register'" (click)="switchView('register')">Registro</button>
+        <button type="button" [class.active]="view() === 'forgot'" (click)="switchView('forgot')">Esqueci senha</button>
+      </nav>
+    </div>
+
+    <form *ngIf="view() === 'login'" (ngSubmit)="submitLogin()">
+      <label>Email</label>
+      <input type="email" [(ngModel)]="email" name="loginEmail" required />
+      <label>Senha</label>
+      <input type="password" [(ngModel)]="password" name="loginPassword" required />
+      <button type="submit" class="primary">Entrar</button>
+    </form>
+
+    <form *ngIf="view() === 'register'" (ngSubmit)="submitRegister()">
+      <label>Nome</label>
+      <input type="text" [(ngModel)]="displayName" name="displayName" required />
+      <label>Email</label>
+      <input type="email" [(ngModel)]="email" name="registerEmail" required />
+      <label>Senha</label>
+      <input type="password" [(ngModel)]="password" name="registerPassword" required />
+      <button type="submit" class="secondary">Criar conta</button>
+    </form>
+
+    <form *ngIf="view() === 'forgot'" (ngSubmit)="submitForgot()">
+      <label>Email</label>
+      <input type="email" [(ngModel)]="email" name="forgotEmail" required />
+      <button type="submit" class="ghost">Enviar instruções</button>
+    </form>
+
+    <div *ngIf="auth.error()" class="auth-alert" [class.success]="auth.error() === 'Conta criada com sucesso. Faça login.'">
+      {{ auth.error() }}
+    </div>
+    <div *ngIf="view() === 'login'" class="auth-footer">
+      <button type="button" class="link" (click)="switchView('forgot')">Esqueci minha senha</button>
+      <button type="button" class="link" (click)="switchView('register')">Ainda não tenho conta</button>
+    </div>
+  </div>
+
+  <div class="auth-side">
+    <div>
+      <h2>Bem-vindo de volta</h2>
+      <p>Use sua conta para acessar as finanças, ver relatórios e manter seu fluxo de caixa sob controle.</p>
+    </div>
+  </div>
+</div>

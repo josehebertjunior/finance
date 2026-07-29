@@ -93,26 +93,44 @@ public static class ApiEndpoints
             return Results.Ok(person);
         });
 
-        api.MapGet("/transactions", async (FinanceDbContext db, int? year, int? month) =>
+        api.MapGet("/transactions", async (HttpContext ctx) =>
         {
+            var db = ctx.RequestServices.GetRequiredService<FinanceDbContext>();
+            var user = ctx.User;
+            if (!user?.Identity?.IsAuthenticated ?? true) return Results.Unauthorized();
+            var sub = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+
             var query = db.Transactions
                 .Include(t => t.Category)
                 .Include(t => t.Person)
                 .Include(t => t.PaymentMethod)
                 .AsQueryable();
 
-            if (year.HasValue && month.HasValue)
+            var q = ctx.Request.Query;
+            if (q.TryGetValue("year", out var ys) && q.TryGetValue("month", out var ms) && int.TryParse(ys.FirstOrDefault(), out var y) && int.TryParse(ms.FirstOrDefault(), out var m))
             {
-                var start = new DateTime(year.Value, month.Value, 1);
+                var start = new DateTime(y, m, 1);
                 var end = start.AddMonths(1);
                 query = query.Where(t => t.ReferenceMonth >= start && t.ReferenceMonth < end);
             }
 
-            return await query.ToListAsync();
+            if (!user.IsInRole("Admin") && !string.IsNullOrEmpty(sub))
+            {
+                query = query.Where(t => t.OwnerId == sub);
+            }
+
+            return Results.Ok(await query.ToListAsync());
         });
 
-        api.MapPost("/transactions", async (FinanceDbContext db, Transaction t) =>
+        api.MapPost("/transactions", async (HttpContext ctx) =>
         {
+            var db = ctx.RequestServices.GetRequiredService<FinanceDbContext>();
+            var user = ctx.User;
+            if (!user?.Identity?.IsAuthenticated ?? true) return Results.Unauthorized();
+            var sub = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+
+            var t = await ctx.Request.ReadFromJsonAsync<Transaction>();
+            if (t == null) return Results.BadRequest();
             if (string.IsNullOrWhiteSpace(t.Description))
                 return Results.BadRequest(new { error = "Description is required." });
             if (t.Amount <= 0)
@@ -136,13 +154,15 @@ public static class ApiEndpoints
                         IsFixed = false,
                         InstallmentCurrent = (t.InstallmentCurrent ?? 1) + i,
                         InstallmentTotal = t.InstallmentTotal,
-                        InstallmentGroupId = groupId
+                        InstallmentGroupId = groupId,
+                        OwnerId = sub ?? string.Empty
                     };
                     db.Transactions.Add(installment);
                 }
             }
             else
             {
+                t.OwnerId = sub ?? string.Empty;
                 db.Transactions.Add(t);
             }
 
@@ -150,15 +170,21 @@ public static class ApiEndpoints
             return Results.Ok();
         });
 
-        api.MapPut("/transactions/{id}", async (FinanceDbContext db, int id, Transaction input) =>
+        api.MapPut("/transactions/{id}", async (HttpContext ctx, int id) =>
         {
-            if (string.IsNullOrWhiteSpace(input.Description))
-                return Results.BadRequest(new { error = "Description is required." });
-            if (input.Amount <= 0)
-                return Results.BadRequest(new { error = "Amount must be greater than zero." });
+            var db = ctx.RequestServices.GetRequiredService<FinanceDbContext>();
+            var user = ctx.User;
+            if (!user?.Identity?.IsAuthenticated ?? true) return Results.Unauthorized();
+            var sub = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+
+            var input = await ctx.Request.ReadFromJsonAsync<Transaction>();
+            if (input == null) return Results.BadRequest();
+            if (string.IsNullOrWhiteSpace(input.Description)) return Results.BadRequest(new { error = "Description is required." });
+            if (input.Amount <= 0) return Results.BadRequest(new { error = "Amount must be greater than zero." });
 
             var t = await db.Transactions.FindAsync(id);
             if (t == null) return Results.NotFound();
+            if (!ctx.User.IsInRole("Admin") && t.OwnerId != (sub ?? string.Empty)) return Results.Forbid();
 
             t.Description = input.Description;
             t.Amount = input.Amount;
@@ -174,15 +200,18 @@ public static class ApiEndpoints
             return Results.Ok(t);
         });
 
-        api.MapGet("/summary/by-category", async (FinanceDbContext db, int year, int month) =>
+        api.MapGet("/summary/by-category", async (FinanceDbContext db, HttpContext ctx, int year, int month) =>
         {
             var start = new DateTime(year, month, 1);
             var end = start.AddMonths(1);
 
-            var expenses = await db.Transactions
-                .Where(t => t.ReferenceMonth >= start && t.ReferenceMonth < end && t.Type == TransactionType.Expense)
-                .Include(t => t.Category)
-                .ToListAsync();
+            var user = ctx.User;
+            var sub = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+
+            var baseQuery = db.Transactions.Where(t => t.ReferenceMonth >= start && t.ReferenceMonth < end && t.Type == TransactionType.Expense).Include(t => t.Category).AsQueryable();
+            if (!user.IsInRole("Admin") && !string.IsNullOrEmpty(sub)) baseQuery = baseQuery.Where(t => t.OwnerId == sub);
+
+            var expenses = await baseQuery.ToListAsync();
 
             var summary = expenses
                 .GroupBy(t => t.Category?.Name ?? "Sem categoria")
@@ -197,18 +226,25 @@ public static class ApiEndpoints
             return Results.Ok(summary);
         });
 
-        api.MapGet("/savings/balance", async (FinanceDbContext db) =>
+        api.MapGet("/savings/balance", async (FinanceDbContext db, HttpContext ctx) =>
         {
-            var deposits = await db.Transactions.Where(t => t.Type == TransactionType.SavingsDeposit).SumAsync(t => (decimal?)t.Amount) ?? 0m;
-            var withdrawals = await db.Transactions.Where(t => t.Type == TransactionType.SavingsWithdrawal).SumAsync(t => (decimal?)t.Amount) ?? 0m;
+            var user = ctx.User;
+            var sub = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+            var depositsQ = db.Transactions.Where(t => t.Type == TransactionType.SavingsDeposit).AsQueryable();
+            var withdrawalsQ = db.Transactions.Where(t => t.Type == TransactionType.SavingsWithdrawal).AsQueryable();
+            if (!user.IsInRole("Admin") && !string.IsNullOrEmpty(sub)) { depositsQ = depositsQ.Where(t => t.OwnerId == sub); withdrawalsQ = withdrawalsQ.Where(t => t.OwnerId == sub); }
+            var deposits = await depositsQ.SumAsync(t => (decimal?)t.Amount) ?? 0m;
+            var withdrawals = await withdrawalsQ.SumAsync(t => (decimal?)t.Amount) ?? 0m;
             return Results.Ok(new { Balance = deposits - withdrawals });
         });
 
-        api.MapDelete("/transactions/{id}", async (FinanceDbContext db, int id) =>
+        api.MapDelete("/transactions/{id}", async (FinanceDbContext db, HttpContext ctx, int id) =>
         {
             var t = await db.Transactions.FindAsync(id);
             if (t == null) return Results.NotFound();
-            
+            var user = ctx.User;
+            var sub = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+            if (!user.IsInRole("Admin") && t.OwnerId != (sub ?? string.Empty)) return Results.Forbid();
             db.Transactions.Remove(t);
             await db.SaveChangesAsync();
             return Results.Ok();

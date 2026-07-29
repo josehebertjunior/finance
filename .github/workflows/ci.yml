@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Restore & build API
+        working-directory: FinanceApp.Api
+        run: |
+          dotnet restore
+          dotnet build --configuration Release
+      - name: Apply migrations
+        working-directory: FinanceApp.Api
+        run: |
+          dotnet tool install --global dotnet-ef --version 8.0.22
+          dotnet ef database update --project FinanceApp.Api.csproj --startup-project FinanceApp.Api.csproj --context AppIdentityDbContext
+      - name: Build UI
+        working-directory: finance-app-ui
+        run: |
+          npm ci
+          npm run build
