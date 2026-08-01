@@ -3,18 +3,35 @@
     <span>{{ errorMessages.message() }}</span>
     <button type="button" aria-label="Fechar mensagem" (click)="errorMessages.clear()">&times;</button>
   </div>
-  <nav *ngIf="showNav()" class="glass-panel app-nav">
-    <h2 class="brand">
-      <span>◆</span> Finanças
-    </h2>
-    <div class="nav-links">
-      <a routerLink="/">Dashboard</a>
-      <a routerLink="/new">Novo Lançamento</a>
-      <a routerLink="/settings">Cadastros</a>
-      <button type="button" class="link logout-button" (click)="logout()">Sair</button>
-    </div>
-  </nav>
-  <section class="app-shell">
-    <router-outlet></router-outlet>
-  </section>
+  <div *ngIf="auth.sessionPrompt()" class="session-overlay" role="dialog" aria-modal="true" aria-labelledby="session-title">
+    <section class="session-dialog">
+      <span class="session-icon">◷</span>
+      <h2 id="session-title">Sua sessão vai expirar</h2>
+      <p>Você ficou algum tempo sem interagir. Deseja continuar conectado?</p>
+      <small>Ela será encerrada em 15 segundos.</small>
+      <div><button type="button" class="continue-session" (click)="auth.continueSession()">Continuar sessão</button><button type="button" class="end-session" (click)="logout()">Sair</button></div>
+    </section>
+  </div>
+  <ng-container *ngIf="showShell(); else authPage">
+    <button class="sidebar-trigger" type="button" (click)="toggleSidebar()" [attr.aria-label]="sidebarOpen() ? 'Fechar menu' : 'Abrir menu'">☰</button>
+    <aside class="sidebar" [class.open]="sidebarOpen()">
+      <a class="brand" routerLink="/" aria-label="Ir para o dashboard"><span>◆</span><strong>Finanças</strong></a>
+      <div class="workspace-label">VISÃO GERAL</div>
+      <nav class="sidebar-nav">
+        <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true}"><span>▦</span> Dashboard</a>
+        <a routerLink="/new" routerLinkActive="active"><span>＋</span> Novo lançamento</a>
+        <a routerLink="/settings" routerLinkActive="active"><span>◌</span> Cadastros</a>
+        <a *ngIf="auth.hasRole('Admin')" routerLink="/admin" routerLinkActive="active"><span>♧</span> Convites e acessos</a>
+      </nav>
+      <div class="sidebar-footer">
+        <span class="signed-in">Sessão ativa</span>
+        <button type="button" (click)="logout()"><span>↪</span> Sair</button>
+      </div>
+    </aside>
+    <div class="sidebar-backdrop" [class.visible]="sidebarOpen()" (click)="toggleSidebar()"></div>
+    <section class="app-shell">
+      <router-outlet></router-outlet>
+    </section>
+  </ng-container>
+  <ng-template #authPage><router-outlet></router-outlet></ng-template>
 </main>

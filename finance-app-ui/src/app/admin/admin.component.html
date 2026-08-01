@@ -1,15 +1,19 @@
 <section class="admin-shell">
-  <div class="admin-panel glass-panel">
-    <h1>Administração</h1>
+  <div class="admin-panel">
+    <header class="admin-heading">
+      <div><p>ADMINISTRAÇÃO</p><h1>Convites e acessos</h1><span>Crie convites para liberar o acesso ao sistema com segurança.</span></div>
+      <div class="admin-count"><strong>{{ users.length }}</strong><span>usuários</span></div>
+    </header>
     <div class="admin-group">
-      <h2>Convites</h2>
+      <div class="group-heading"><div><span class="group-icon">✉</span><div><h2>Novo convite</h2><p>O convidado define a própria senha pelo link recebido.</p></div></div></div>
       <form (ngSubmit)="createInvite()">
-        <label>Email do usuário</label>
-        <input type="email" [(ngModel)]="newInvite.email" name="inviteEmail" required />
-        <label>Nome do tenant</label>
-        <input type="text" [(ngModel)]="newInvite.tenantName" name="tenantName" required />
-        <button type="submit">Enviar convite</button>
+        <div><label>Email do usuário</label><input type="email" [(ngModel)]="newInvite.email" name="inviteEmail" placeholder="pessoa@email.com" required /></div>
+        <div><label>Grupo / família</label><input type="text" [(ngModel)]="newInvite.tenantName" name="tenantName" placeholder="Ex.: Família Silva" required /></div>
+        <button type="submit">Enviar convite <span>→</span></button>
       </form>
+    </div>
+    <div class="admin-group table-group">
+      <div class="table-heading"><div><h2>Convites enviados</h2><p>Os links expiram em uma hora.</p></div><span>{{ invites.length }}</span></div>
       <table>
         <thead>
           <tr>
@@ -32,8 +36,8 @@
       </table>
     </div>
 
-    <div class="admin-group">
-      <h2>Tenants</h2>
+    <div class="admin-group table-group">
+      <div class="table-heading"><div><h2>Grupos</h2><p>Organização dos usuários convidados.</p></div><span>{{ tenants.length }}</span></div>
       <table>
         <thead>
           <tr>
@@ -52,8 +56,8 @@
       </table>
     </div>
 
-    <div class="admin-group">
-      <h2>Usuários</h2>
+    <div class="admin-group table-group">
+      <div class="table-heading"><div><h2>Usuários</h2><p>Gerencie as permissões da sua equipe.</p></div><span>{{ users.length }}</span></div>
       <table>
         <thead>
           <tr>
@@ -73,17 +77,15 @@
         </tbody>
       </table>
       <form (ngSubmit)="assignRole()">
-        <label>Selecionar usuário</label>
-        <select [(ngModel)]="roleAssignment.userId" name="roleUserId" required>
+        <div><label>Selecionar usuário</label><select [(ngModel)]="roleAssignment.userId" name="roleUserId" required>
           <option value="">Escolha usuario</option>
           <option *ngFor="let user of users" [value]="user.id">{{ user.email }}</option>
-        </select>
-        <label>Função</label>
-        <select [(ngModel)]="roleAssignment.role" name="role" required>
+        </select></div>
+        <div><label>Função</label><select [(ngModel)]="roleAssignment.role" name="role" required>
           <option value="User">User</option>
           <option value="Admin">Admin</option>
-        </select>
-        <button type="submit">Atribuir função</button>
+        </select></div>
+        <button type="submit">Salvar função</button>
       </form>
     </div>
   </div>

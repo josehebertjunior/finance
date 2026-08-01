@@ -80,6 +80,30 @@ public class ApiAuthTests
         var transactionResponse = await client.SendAsync(transactionRequest);
         transactionResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
+        var fixedMonth = new DateTime(2026, 8, 1);
+        var fixedRequest = new HttpRequestMessage(HttpMethod.Post, "/api/transactions")
+        {
+            Content = JsonContent.Create(new
+            {
+                description = "Conta fixa de teste",
+                amount = 120m,
+                type = 1,
+                date = fixedMonth,
+                referenceMonth = fixedMonth,
+                isFixed = true,
+                installmentTotal = 1
+            })
+        };
+        fixedRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", login.accessToken);
+        (await client.SendAsync(fixedRequest)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var nextMonthRequest = new HttpRequestMessage(HttpMethod.Get, "/api/transactions?year=2026&month=9");
+        nextMonthRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", login.accessToken);
+        var nextMonthResponse = await client.SendAsync(nextMonthRequest);
+        var nextMonthTransactions = await nextMonthResponse.Content.ReadFromJsonAsync<Transaction[]>();
+        nextMonthResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        nextMonthTransactions.Should().ContainSingle(t => t.Description == "Conta fixa de teste" && t.IsFixed);
+
         var firstSession = SessionCookies(loginResponse);
         var missingCsrfResponse = await client.PostAsync("/api/auth/refresh", null);
         missingCsrfResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);

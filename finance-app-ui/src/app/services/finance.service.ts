@@ -43,6 +43,10 @@ export class FinanceService {
     return this.http.get<any[]>(url, this.getAuthHeaders()).pipe(catchError(this.handleError));
   }
 
+  getTransaction(id: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/transactions/${id}`, this.getAuthHeaders()).pipe(catchError(this.handleError));
+  }
+
   getSummaryByCategory(year: number, month: number): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/summary/by-category?year=${year}&month=${month}`, this.getAuthHeaders()).pipe(catchError(this.handleError));
   }
@@ -55,12 +59,12 @@ export class FinanceService {
     return this.http.post(`${this.apiUrl}/transactions`, t, this.getAuthHeaders()).pipe(catchError(this.handleError));
   }
 
-  updateTransaction(id: number, t: any): Observable<any> {
-    return this.http.put(`${this.apiUrl}/transactions/${id}`, t, this.getAuthHeaders()).pipe(catchError(this.handleError));
+  updateTransaction(id: number, t: any, scope: 'current' | 'series' = 'current'): Observable<any> {
+    return this.http.put(`${this.apiUrl}/transactions/${id}?scope=${scope}`, t, this.getAuthHeaders()).pipe(catchError(this.handleError));
   }
 
-  deleteTransaction(id: number): Observable<any> {
-    return this.http.delete(`${this.apiUrl}/transactions/${id}`, this.getAuthHeaders()).pipe(catchError(this.handleError));
+  deleteTransaction(id: number, scope: 'current' | 'series' = 'current'): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/transactions/${id}?scope=${scope}`, this.getAuthHeaders()).pipe(catchError(this.handleError));
   }
 
   deleteCategory(id: number): Observable<any> {

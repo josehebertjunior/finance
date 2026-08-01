@@ -1,5 +1,5 @@
 <div class="glass-panel" style="max-width: 600px; margin: 0 auto; padding: 2rem;">
-  <h2 style="margin-bottom: 1.5rem; text-align: center;">Novo Lançamento</h2>
+  <h2 style="margin-bottom: 1.5rem; text-align: center;">{{ editingId ? 'Editar lançamento' : 'Novo lançamento' }}</h2>
 
   <form (ngSubmit)="save()" #f="ngForm" style="display: flex; flex-direction: column; gap: 1.25rem;">
     
@@ -8,7 +8,7 @@
       <button type="button" [ngStyle]="{'background': transaction.type === 0 ? 'var(--success)' : 'rgba(255,255,255,0.1)'}" (click)="transaction.type = 0" style="flex: 1; padding: 0.75rem; color: white; min-width: 120px;">Entrada (+)</button>
       <button type="button" [ngStyle]="{'background': transaction.type === 1 ? 'var(--danger)' : 'rgba(255,255,255,0.1)'}" (click)="transaction.type = 1" style="flex: 1; padding: 0.75rem; color: white; min-width: 120px;">Saída (-)</button>
       <button type="button" [ngStyle]="{'background': transaction.type === 2 ? 'var(--accent-primary)' : 'rgba(255,255,255,0.1)'}" (click)="transaction.type = 2" style="flex: 1; padding: 0.75rem; color: white; min-width: 120px;">Guardar (POUP)</button>
-      <button type="button" [ngStyle]="{'background': transaction.type === 3 ? 'var(--warning)' : 'rgba(255,255,255,0.1)'}" (click)="transaction.type = 3" style="flex: 1; padding: 0.75rem; color: white; min-width: 120px;">Restgatar (POUP)</button>
+      <button type="button" [ngStyle]="{'background': transaction.type === 3 ? 'var(--warning)' : 'rgba(255,255,255,0.1)'}" (click)="transaction.type = 3" style="flex: 1; padding: 0.75rem; color: white; min-width: 120px;">Resgatar (POUP)</button>
     </div>
 
     <!-- Description -->
@@ -67,8 +67,8 @@
     <div style="display: flex; flex-direction: column; gap: 1rem; background: rgba(0,0,0,0.2); padding: 1.25rem; border-radius: 8px;">
       
       <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <input type="checkbox" [(ngModel)]="isInstallment" name="isInstallment" id="isInstallment" style="width: 20px; height: 20px; accent-color: var(--accent-primary);">
-        <label for="isInstallment" style="font-size: 1rem; color: white;">Conta Parcelada?</label>
+        <input type="checkbox" [(ngModel)]="isInstallment" (ngModelChange)="onInstallmentChange()" name="isInstallment" id="isInstallment" style="width: 20px; height: 20px; accent-color: var(--accent-primary);">
+        <label for="isInstallment" style="font-size: 1rem; color: white;">Transação Parcelada?</label>
       </div>
 
       <div *ngIf="isInstallment" style="display: flex; gap: 1rem; margin-left: 28px;">
@@ -83,15 +83,22 @@
       </div>
 
       <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <input type="checkbox" [(ngModel)]="transaction.isFixed" name="isFixed" id="isFixed" style="width: 20px; height: 20px; accent-color: var(--accent-primary);">
-        <label for="isFixed" style="font-size: 1rem; color: white;">Conta Fixa (se repete todo mês)?</label>
+        <input type="checkbox" [(ngModel)]="transaction.isFixed" (ngModelChange)="onFixedChange()" name="isFixed" id="isFixed" style="width: 20px; height: 20px; accent-color: var(--accent-primary);">
+        <label for="isFixed" style="font-size: 1rem; color: white;">Transação Fixa (se repete todo mês)?</label>
       </div>
 
     </div>
 
+    <fieldset *ngIf="canApplyToSeries" style="display: flex; flex-direction: column; gap: .65rem; margin: 0; padding: 1rem 1.15rem; border: 1px solid rgba(129,140,248,.4); border-radius: 9px;">
+      <legend style="padding: 0 .35rem; color: #c7d2fe; font-weight: 700;">Aplicar alteração</legend>
+      <label style="display: flex; align-items: center; gap: .55rem;"><input type="radio" [(ngModel)]="applyToSeries" [value]="false" name="editScope"> Somente este lançamento</label>
+      <label style="display: flex; align-items: center; gap: .55rem;"><input type="radio" [(ngModel)]="applyToSeries" [value]="true" name="editScope"> Todos os lançamentos da série</label>
+      <small style="color: #94a3b8;">Use a primeira opção quando o valor desta conta variar apenas neste mês.</small>
+    </fieldset>
+
     <!-- Submit -->
     <button type="submit" class="primary" [disabled]="!f.valid" style="margin-top: 1rem; padding: 1rem; font-size: 1.1rem; font-weight: 600;">
-      Salvar Lançamento
+      {{ editingId ? 'Salvar alterações' : 'Salvar lançamento' }}
     </button>
   </form>
 </div>

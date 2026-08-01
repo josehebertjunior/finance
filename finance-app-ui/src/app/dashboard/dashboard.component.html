@@ -1,82 +1,66 @@
-<div style="display: flex; gap: 2rem; margin-bottom: 2rem; flex-wrap: wrap;">
-  <div class="glass-panel" style="flex: 2; min-width: 300px; padding: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
-    <div>
-      <h2 style="margin: 0; margin-bottom: 0.75rem;">Resumo Geral</h2>
-      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-        
-        <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-          <label style="color: var(--text-secondary); font-size: 0.85rem;">Meses Visíveis (Segure CTRL para vários):</label>
-          <select multiple [(ngModel)]="selectedMonths" (change)="onFilterChange()" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: white; padding: 0.25rem; border-radius: 4px; min-width: 180px; height: 100px;">
-            <option *ngFor="let m of availableMonths" [value]="m.id">{{m.label | uppercase}}</option>
-          </select>
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-          <label style="color: var(--text-secondary); font-size: 0.85rem;">Filtrar Pessoas (Deixe branco para todos):</label>
-          <select multiple [(ngModel)]="selectedPersons" (change)="onFilterChange()" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: white; padding: 0.25rem; border-radius: 4px; min-width: 150px; height: 100px;">
-            <option *ngFor="let p of availablePersons" [value]="p.id">{{p.name}}</option>
-          </select>
-        </div>
-
-      </div>
-    </div>
-    <button class="primary" routerLink="/new" style="padding: 0.75rem 1.25rem; align-self: center;">Lançar Nova Conta</button>
+<header class="dashboard-heading">
+  <div>
+    <p class="eyebrow">VISÃO FINANCEIRA</p>
+    <h1>Olá, vamos cuidar do seu dinheiro.</h1>
+    <p class="subtitle">Acompanhe os lançamentos e o resultado dos meses selecionados.</p>
   </div>
+  <a class="new-transaction" routerLink="/new"><span>＋</span> Novo lançamento</a>
+</header>
 
-  <div class="glass-panel" style="flex: 1; min-width: 250px; padding: 1.5rem; display: flex; flex-direction: column; justify-content: center; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2);">
-    <h3 style="margin: 0; color: var(--success); display: flex; align-items: center; gap: 0.5rem;">
-      <span>💰</span> Saldo Poupança
-    </h3>
-    <div style="font-size: 2rem; font-weight: bold; margin-top: 0.5rem; color: white;">
-      R$ {{ savingsBalance | number:'1.2-2' }}
-    </div>
+<section class="filter-panel">
+  <div class="filter-title"><span class="filter-icon">◫</span><div><strong>Período e pessoas</strong><small>Os filtros atualizam na hora.</small></div></div>
+  <div class="filter-group">
+    <span class="filter-label">Meses</span>
+    <details class="month-multiselect">
+      <summary><span>{{ selectedMonths.length ? selectedMonths.length + ' mês(es) selecionado(s)' : 'Selecione os meses' }}</span><span>⌄</span></summary>
+      <div class="month-options">
+        <label *ngFor="let month of availableMonths"><input type="checkbox" [checked]="selectedMonths.includes(month.id)" (change)="toggleMonth(month.id)"><span>{{ month.label }}</span></label>
+      </div>
+    </details>
   </div>
-</div>
-
-<div class="months-container" style="display: flex; gap: 2rem; overflow-x: auto; padding-bottom: 1rem;">
-  <div *ngFor="let month of months" class="month-column glass-panel" style="flex: 1; min-width: 350px; padding: 1.5rem;">
-    <h3 style="text-align: center; margin-bottom: 1.5rem; text-transform: uppercase; background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 8px;">
-      {{month.label}}
-    </h3>
-    
-    <div style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
-      <div style="display: flex; justify-content: space-between; color: var(--success); font-weight: 500;">
-        <span>Entradas:</span>
-        <span>R$ {{month.totalIncome | number:'1.2-2'}}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; color: var(--danger); font-weight: 500; margin-top: 0.5rem;">
-        <span>Saídas:</span>
-        <span>R$ {{month.totalExpense | number:'1.2-2'}}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; margin-top: 1rem;" 
-           [ngStyle]="{'color': month.total >= 0 ? 'var(--success)' : 'var(--danger)'}">
-        <span>Total Mensal:</span>
-        <span>R$ {{month.total | number:'1.2-2'}}</span>
-      </div>
-    </div>
-
-    <div *ngIf="month.transactions.length === 0" style="text-align: center; color: var(--text-secondary); padding: 2rem 0;">
-      Nenhum lançamento.
-    </div>
-
-    <div *ngFor="let t of month.transactions" style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid rgba(255,255,255,0.02);">
-      <div style="display: flex; flex-direction: column; flex: 1;">
-        <span style="font-weight: 500; font-size: 0.95rem;">
-          {{t.description}} 
-          <span *ngIf="t.installmentTotal > 1" style="font-size: 0.8rem; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 10px; margin-left: 6px;">{{t.installmentCurrent}}/{{t.installmentTotal}}</span>
-        </span>
-        <span style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">
-          {{t.paymentMethod?.name || 'Débito'}} <span *ngIf="t.person"> | {{t.person?.name}}</span>
-        </span>
-      </div>
-      <div style="display: flex; align-items: center; gap: 1rem;">
-        <span [ngStyle]="{'color': t.type === 0 || t.type === 3 ? 'var(--success)' : (t.type === 1 ? 'var(--danger)' : 'var(--accent-primary)')}" style="font-weight: 600;">
-          {{ t.type === 0 || t.type === 3 ? '+' : '-' }} R$ {{t.amount | number:'1.2-2'}}
-        </span>
-        <button (click)="deleteTransaction(t.id)" style="background: transparent; color: var(--text-secondary); padding: 0.25rem; font-size: 1.2rem; margin-left: 0.5rem; cursor: pointer;" title="Excluir">
-          &times;
-        </button>
-      </div>
-    </div>
+  <div class="filter-group">
+    <div class="filter-label-row"><span class="filter-label">Pessoas</span><button *ngIf="selectedPersons.length" class="clear-filter" type="button" (click)="clearPersonFilter()">Limpar</button></div>
+    <div class="filter-pills"><button *ngFor="let person of availablePersons" type="button" [class.active]="selectedPersons.includes(person.id)" (click)="togglePerson(person.id)">{{ person.name }}</button><span *ngIf="!availablePersons.length" class="empty-filter">Nenhuma pessoa cadastrada</span></div>
   </div>
+</section>
+
+<section class="summary-grid">
+  <article class="metric-card balance-card"><span class="metric-icon">◈</span><span class="metric-label">Saldo do período</span><strong>R$ {{ balance | number:'1.2-2' }}</strong><small>{{ allTransactions.length }} lançamento{{ allTransactions.length === 1 ? '' : 's' }} encontrado{{ allTransactions.length === 1 ? '' : 's' }}</small></article>
+  <article class="metric-card income-card"><span class="metric-icon">↗</span><span class="metric-label">Entradas</span><strong>R$ {{ totalIncome | number:'1.2-2' }}</strong><small>Receitas dos meses selecionados</small></article>
+  <article class="metric-card expense-card"><span class="metric-icon">↘</span><span class="metric-label">Saídas</span><strong>R$ {{ totalExpense | number:'1.2-2' }}</strong><small>Despesas dos meses selecionados</small></article>
+  <article class="metric-card savings-card"><span class="metric-icon">◌</span><span class="metric-label">Poupança</span><strong>R$ {{ savingsBalance | number:'1.2-2' }}</strong><small>Saldo acumulado</small></article>
+</section>
+
+<section class="transactions-section">
+  <div class="section-heading"><div><p class="eyebrow">LANÇAMENTOS</p><h2>Movimentações por mês</h2></div><span>{{ selectedMonths.length }} mês{{ selectedMonths.length === 1 ? '' : 'es' }} selecionado{{ selectedMonths.length === 1 ? '' : 's' }}</span></div>
+  <div *ngIf="!months.length" class="empty-state"><span>◌</span><h3>Selecione pelo menos um mês</h3><p>Os lançamentos aparecerão aqui assim que você escolher um período.</p></div>
+  <div class="month-grid">
+    <article *ngFor="let month of months" class="month-card">
+      <header><div><p>{{ month.label }}</p><span>{{ month.transactions.length }} lançamento{{ month.transactions.length === 1 ? '' : 's' }}</span></div><strong [class.negative]="month.total < 0">R$ {{ month.total | number:'1.2-2' }}</strong></header>
+      <div *ngIf="!month.transactions.length" class="empty-month">Nenhum lançamento neste filtro.</div>
+      <ng-container *ngIf="month.transactions.length">
+        <ul *ngIf="directTransactions(month).length">
+          <li *ngFor="let transaction of directTransactions(month)">
+            <span class="transaction-type" [class.income]="transaction.type === 0" [class.expense]="transaction.type === 1">{{ transaction.type === 0 ? '↑' : transaction.type === 1 ? '↓' : '◌' }}</span>
+            <div class="transaction-main"><strong>{{ transaction.description }} <em *ngIf="transaction.installmentTotal > 1" class="installment-badge">{{ transaction.installmentCurrent || 1 }}/{{ transaction.installmentTotal }}</em></strong><span>{{ transaction.category?.name || 'Sem categoria' }}<ng-container *ngIf="transaction.person"> · {{ transaction.person.name }}</ng-container></span></div>
+            <div class="transaction-value" [class.income]="transaction.type === 0" [class.expense]="transaction.type === 1"><strong>{{ transaction.type === 0 ? '+' : '-' }} R$ {{ transaction.amount | number:'1.2-2' }}</strong><span class="row-actions"><a [routerLink]="['/edit', transaction.id]" aria-label="Editar lançamento">✎</a><button type="button" (click)="requestDeletion(transaction)" aria-label="Excluir lançamento">×</button></span></div>
+          </li>
+        </ul>
+        <section *ngFor="let group of creditCardGroups(month)" class="credit-invoice">
+          <header class="invoice-header"><div><span class="invoice-kicker">FATURA DO CARTÃO</span><strong>{{ group.name }}</strong></div><strong>- R$ {{ group.total | number:'1.2-2' }}</strong></header>
+          <ul class="invoice-list"><li *ngFor="let transaction of group.transactions"><span class="transaction-type expense">↓</span><div class="transaction-main"><strong>{{ transaction.description }} <em *ngIf="transaction.installmentTotal > 1" class="installment-badge">{{ transaction.installmentCurrent || 1 }}/{{ transaction.installmentTotal }}</em></strong><span>{{ transaction.category?.name || 'Sem categoria' }}<ng-container *ngIf="transaction.person"> · {{ transaction.person.name }}</ng-container></span></div><div class="transaction-value expense"><strong>- R$ {{ transaction.amount | number:'1.2-2' }}</strong><span class="row-actions"><a [routerLink]="['/edit', transaction.id]" aria-label="Editar lançamento">✎</a><button type="button" (click)="requestDeletion(transaction)" aria-label="Excluir lançamento">×</button></span></div></li></ul>
+        </section>
+      </ng-container>
+    </article>
+  </div>
+</section>
+
+<div *ngIf="pendingDeletion" class="series-overlay" role="dialog" aria-modal="true" aria-labelledby="series-delete-title">
+  <section class="series-dialog">
+    <h2 id="series-delete-title">Excluir lançamento recorrente?</h2>
+    <p><strong>{{ pendingDeletion.description }}</strong> faz parte de uma {{ pendingDeletion.isFixed ? 'conta fixa' : 'compra parcelada' }}.</p>
+    <p>Escolha se deseja excluir somente este mês ou todos os lançamentos da série.</p>
+    <div class="series-actions"><button type="button" class="current-action" (click)="confirmDeletion('current')">Somente este mês</button><button type="button" class="series-action" (click)="confirmDeletion('series')">Toda a série</button></div>
+    <button type="button" class="cancel-action" (click)="cancelDeletion()">Cancelar</button>
+  </section>
 </div>

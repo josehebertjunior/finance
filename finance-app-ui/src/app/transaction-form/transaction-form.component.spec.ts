@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { TransactionFormComponent } from './transaction-form.component';
 import { FinanceService } from '../services/finance.service';
@@ -25,7 +25,8 @@ describe('TransactionFormComponent', () => {
       imports: [TransactionFormComponent],
       providers: [
         { provide: FinanceService, useValue: finance },
-        { provide: Router, useValue: router }
+        { provide: Router, useValue: router },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null } } } }
       ]
     }).compileComponents();
   });

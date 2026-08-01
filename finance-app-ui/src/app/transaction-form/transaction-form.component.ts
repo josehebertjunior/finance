@@ -1,7 +1,7 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FinanceService } from '../services/finance.service';
 
 @Component({
@@ -14,6 +14,10 @@ import { FinanceService } from '../services/finance.service';
 export class TransactionFormComponent implements OnInit {
   financeService = inject(FinanceService);
   router = inject(Router);
+  private route = inject(ActivatedRoute);
+  private cdr = inject(ChangeDetectorRef);
+  editingId: number | null = null;
+  applyToSeries = false;
 
   isInstallment: boolean = false;
 
@@ -36,9 +40,42 @@ export class TransactionFormComponent implements OnInit {
   paymentMethods: any[] = [];
 
   ngOnInit() {
-    this.financeService.getCategories().subscribe(res => this.categories = res);
-    this.financeService.getPersons().subscribe(res => this.persons = res);
-    this.financeService.getPaymentMethods().subscribe(res => this.paymentMethods = res);
+    this.financeService.getCategories().subscribe(res => { this.categories = res; this.cdr.markForCheck(); });
+    this.financeService.getPersons().subscribe(res => { this.persons = res; this.cdr.markForCheck(); });
+    this.financeService.getPaymentMethods().subscribe(res => { this.paymentMethods = res; this.cdr.markForCheck(); });
+
+    const id = Number(this.route.snapshot.paramMap.get('id'));
+    if (Number.isFinite(id) && id > 0) {
+      this.editingId = id;
+      this.financeService.getTransaction(id).subscribe(transaction => {
+        this.transaction = {
+          ...transaction,
+          date: transaction.date?.slice(0, 10),
+          referenceMonth: transaction.referenceMonth?.slice(0, 7),
+          installmentCurrent: transaction.installmentCurrent ?? 1,
+          installmentTotal: transaction.installmentTotal ?? 1
+        };
+        this.isInstallment = this.transaction.installmentTotal > 1;
+        this.cdr.markForCheck();
+      });
+    }
+  }
+
+  onInstallmentChange() {
+    if (this.isInstallment) this.transaction.isFixed = false;
+  }
+
+  onFixedChange() {
+    if (this.transaction.isFixed) {
+      this.isInstallment = false;
+      this.transaction.installmentCurrent = 1;
+      this.transaction.installmentTotal = 1;
+    }
+  }
+
+  get canApplyToSeries() {
+    return !!this.editingId && !!this.transaction.installmentGroupId
+      && (this.transaction.isFixed || this.transaction.installmentTotal > 1);
   }
 
   save() {
@@ -54,7 +91,11 @@ export class TransactionFormComponent implements OnInit {
       amount: Number(this.transaction.amount)
     };
 
-    this.financeService.createTransaction(transactionPayload).subscribe({
+    const request = this.editingId
+      ? this.financeService.updateTransaction(this.editingId, transactionPayload, this.applyToSeries ? 'series' : 'current')
+      : this.financeService.createTransaction(transactionPayload);
+
+    request.subscribe({
       next: () => this.router.navigate(['/']),
       error: (e) => console.error(e)
     });

@@ -8,19 +8,33 @@ interface LoginResult { accessToken: string; expiresIn: number }
 
 interface JwtClaims {
   role?: string | string[];
+  'http://schemas.microsoft.com/ws/2008/06/identity/claims/role'?: string | string[];
   exp?: number;
 }
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private readonly refreshLeadMs = 2 * 60 * 1000;
+  private readonly idleLimitMs = 2 * 60 * 1000;
+  private readonly sessionPromptMs = 15 * 1000;
+  private refreshTimer?: ReturnType<typeof setTimeout>;
+  private promptTimer?: ReturnType<typeof setTimeout>;
+  private lastActivity = Date.now();
   private _accessToken = signal<string | null>(null);
   public accessToken = this._accessToken.asReadonly();
   private _roles = signal<string[]>([]);
   public roles = this._roles.asReadonly();
   private _error = signal<string | null>(null);
   public error = this._error.asReadonly();
+  private _sessionPrompt = signal(false);
+  public sessionPrompt = this._sessionPrompt.asReadonly();
 
   constructor(private http: HttpClient, private router: Router, private errorMessages: ErrorMessageService) {
+    if (typeof window !== 'undefined') {
+      const markActivity = () => this.lastActivity = Date.now();
+      ['pointerdown', 'keydown', 'touchstart', 'scroll'].forEach(event =>
+        window.addEventListener(event, markActivity, { passive: true }));
+    }
     const savedToken = localStorage.getItem('accessToken');
     if (savedToken && !this.isTokenExpired(savedToken)) {
       this.setAccessToken(savedToken);
@@ -48,8 +62,8 @@ export class AuthService {
     this._accessToken.set(token);
     localStorage.setItem('accessToken', token);
     const claims = this.parseJwt(token);
-    if (claims && claims.role) {
-      const roleClaim = claims.role;
+    const roleClaim = claims?.role ?? claims?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
+    if (roleClaim) {
       if (Array.isArray(roleClaim)) {
         this._roles.set(roleClaim);
       } else {
@@ -58,12 +72,56 @@ export class AuthService {
     } else {
       this._roles.set([]);
     }
+    this.lastActivity = Date.now();
+    this.scheduleRefresh(token);
   }
 
   private getCsrfToken() {
     const cookies = document.cookie.split(';').map(c => c.trim());
     const csrfCookie = cookies.find(c => c.startsWith('csrfToken='));
-    return csrfCookie ? csrfCookie.split('=')[1] : null;
+    if (!csrfCookie) return null;
+    try { return decodeURIComponent(csrfCookie.split('=').slice(1).join('=')); } catch { return null; }
+  }
+
+  private scheduleRefresh(token: string) {
+    this.stopSessionTimers();
+    const expiration = this.parseJwt(token)?.exp;
+    if (!expiration) return;
+    const delay = Math.max(0, expiration * 1000 - Date.now() - this.refreshLeadMs);
+    this.refreshTimer = setTimeout(() => {
+      if (!this.isAuthenticated()) return this.handleUnauthorized();
+      if (Date.now() - this.lastActivity < this.idleLimitMs) {
+        this.renewSession();
+      } else {
+        this.askToContinueSession();
+      }
+    }, delay);
+  }
+
+  private stopSessionTimers() {
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    if (this.promptTimer) clearTimeout(this.promptTimer);
+    this.refreshTimer = undefined;
+    this.promptTimer = undefined;
+    this._sessionPrompt.set(false);
+  }
+
+  private askToContinueSession() {
+    this._sessionPrompt.set(true);
+    this.promptTimer = setTimeout(() => this.clear(), this.sessionPromptMs);
+  }
+
+  private renewSession() {
+    this.stopSessionTimers();
+    this.refresh().subscribe({
+      next: result => result?.accessToken ? this.setAccessToken(result.accessToken) : this.handleUnauthorized(),
+      error: () => this.handleUnauthorized()
+    });
+  }
+
+  continueSession() {
+    this.lastActivity = Date.now();
+    this.renewSession();
   }
 
   hasRole(role: string) {
@@ -76,6 +134,7 @@ export class AuthService {
   }
 
   handleUnauthorized() {
+    this.stopSessionTimers();
     this._accessToken.set(null);
     this._roles.set([]);
     localStorage.removeItem('accessToken');
@@ -144,6 +203,7 @@ export class AuthService {
   }
 
   clear() {
+    this.stopSessionTimers();
     this._accessToken.set(null);
     this._roles.set([]);
     localStorage.removeItem('accessToken');

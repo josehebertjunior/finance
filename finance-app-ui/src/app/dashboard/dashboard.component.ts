@@ -1,111 +1,186 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { FormsModule } from '@angular/forms';
 import { FinanceService } from '../services/finance.service';
+
+type DashboardMonth = {
+  year: number;
+  month: number;
+  id: string;
+  label: string;
+  transactions: any[];
+  totalIncome: number;
+  totalExpense: number;
+  total: number;
+};
+
+type CreditCardGroup = {
+  id: number | string;
+  name: string;
+  total: number;
+  transactions: any[];
+};
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
 })
 export class DashboardComponent implements OnInit {
-  financeService = inject(FinanceService);
-  
-  savingsBalance: number = 0;
-  
-  availableMonths: { id: string, label: string }[] = [];
-  selectedMonths: string[] = []; // YYYY-MM array
-  
-  availablePersons: any[] = [];
-  selectedPersons: number[] = []; // Person ID array
+  private financeService = inject(FinanceService);
+  private cdr = inject(ChangeDetectorRef);
 
-  months: { year: number, month: number, label: string, transactions: any[], totalIncome: number, totalExpense: number, total: number }[] = [];
+  savingsBalance = 0;
+  availableMonths: { id: string; label: string }[] = [];
+  selectedMonths: string[] = [];
+  availablePersons: any[] = [];
+  selectedPersons: number[] = [];
+  months: DashboardMonth[] = [];
+  pendingDeletion: any | null = null;
+
+  get totalIncome() { return this.months.reduce((total, month) => total + month.totalIncome, 0); }
+  get totalExpense() { return this.months.reduce((total, month) => total + month.totalExpense, 0); }
+  get balance() { return this.totalIncome - this.totalExpense; }
+  get allTransactions() { return this.months.flatMap(month => month.transactions); }
 
   ngOnInit() {
-    this.financeService.getPersons().subscribe(res => this.availablePersons = res);
+    this.financeService.getPersons().subscribe(res => {
+      this.availablePersons = res;
+      this.cdr.markForCheck();
+    });
 
-    let now = new Date();
-    for(let i = -3; i <= 12; i++) {
-        let d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-        let id = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}`;
-        this.availableMonths.push({ 
-           id: id, 
-           label: d.toLocaleString('pt-BR', { month: 'long', year: 'numeric' }) 
-        });
+    const now = new Date();
+    for (let offset = -3; offset <= 12; offset++) {
+      const date = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+      this.availableMonths.push({
+        id: this.monthId(date.getFullYear(), date.getMonth() + 1),
+        label: date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
+      });
     }
-    
-    let currentId = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}`;
-    this.selectedMonths = [currentId];
 
-    this.generateMonths();
+    this.selectedMonths = [this.monthId(now.getFullYear(), now.getMonth() + 1)];
+    this.loadSelectedMonths();
     this.loadSavings();
   }
 
-  loadSavings() {
-    this.financeService.getSavingsBalance().subscribe(res => {
-      this.savingsBalance = res.balance;
-    });
+  toggleMonth(monthId: string) {
+    this.selectedMonths = this.selectedMonths.includes(monthId)
+      ? this.selectedMonths.filter(id => id !== monthId)
+      : [...this.selectedMonths, monthId];
+    this.loadSelectedMonths();
   }
 
-  generateMonths() {
-    if (!this.selectedMonths || this.selectedMonths.length === 0) {
-      this.months = [];
-      return;
-    }
-    
-    this.months = [];
-    this.selectedMonths.forEach(mStr => {
-      let parts = mStr.split('-');
-      let y = parseInt(parts[0]);
-      let m = parseInt(parts[1]);
-      let d = new Date(y, m - 1, 1);
-      
-      this.months.push({ 
-          year: y, 
-          month: m, 
-          label: d.toLocaleString('pt-BR', { month: 'long', year: 'numeric' }),
-          transactions: [],
-          totalIncome: 0,
-          totalExpense: 0,
-          total: 0
-      });
-    });
-
-    this.months.sort((a,b) => (a.year * 100 + a.month) - (b.year * 100 + b.month));
+  togglePerson(personId: number) {
+    this.selectedPersons = this.selectedPersons.includes(personId)
+      ? this.selectedPersons.filter(id => id !== personId)
+      : [...this.selectedPersons, personId];
     this.loadTransactions();
   }
 
-  onFilterChange() {
-    this.generateMonths();
+  clearPersonFilter() {
+    this.selectedPersons = [];
+    this.loadTransactions();
   }
 
-  loadTransactions() {
-    this.months.forEach(m => {
-      this.financeService.getTransactions(m.year, m.month).subscribe(res => {
-        let filtered = res;
-        if (this.selectedPersons && this.selectedPersons.length > 0) {
-           filtered = filtered.filter((t: any) => t.personId != null && this.selectedPersons.includes(t.personId));
-        }
-        m.transactions = filtered;
-        this.calculateTotals(m);
+  requestDeletion(transaction: any) {
+    if (this.hasSeries(transaction)) {
+      this.pendingDeletion = transaction;
+      return;
+    }
+    if (confirm('Excluir este lançamento?')) this.deleteTransaction(transaction.id, 'current');
+  }
+
+  cancelDeletion() {
+    this.pendingDeletion = null;
+  }
+
+  confirmDeletion(scope: 'current' | 'series') {
+    if (!this.pendingDeletion) return;
+    this.deleteTransaction(this.pendingDeletion.id, scope);
+    this.pendingDeletion = null;
+  }
+
+  private deleteTransaction(id: number, scope: 'current' | 'series') {
+    this.financeService.deleteTransaction(id, scope).subscribe(() => {
+      this.loadTransactions();
+      this.loadSavings();
+    });
+  }
+
+  directTransactions(month: DashboardMonth) {
+    return month.transactions.filter(transaction => !this.isCreditExpense(transaction));
+  }
+
+  creditCardGroups(month: DashboardMonth): CreditCardGroup[] {
+    const groups = new Map<number | string, CreditCardGroup>();
+    month.transactions.filter(transaction => this.isCreditExpense(transaction)).forEach(transaction => {
+      const id = transaction.paymentMethodId ?? transaction.paymentMethod?.id ?? 'credit-card';
+      const name = transaction.paymentMethod?.name || 'Cartão de crédito';
+      const group: CreditCardGroup = groups.get(id) ?? { id, name, total: 0, transactions: [] };
+      group.transactions.push(transaction);
+      group.total += Number(transaction.amount);
+      groups.set(id, group);
+    });
+    return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  private loadSavings() {
+    this.financeService.getSavingsBalance().subscribe(res => {
+      this.savingsBalance = res.balance;
+      this.cdr.markForCheck();
+    });
+  }
+
+  private loadSelectedMonths() {
+    this.months = this.selectedMonths
+      .map(id => this.monthFromId(id))
+      .sort((a, b) => (a.year * 100 + a.month) - (b.year * 100 + b.month));
+    this.loadTransactions();
+  }
+
+  private loadTransactions() {
+    this.months.forEach(month => {
+      this.financeService.getTransactions(month.year, month.month).subscribe(res => {
+        month.transactions = this.selectedPersons.length
+          ? res.filter((transaction: any) => transaction.personId != null && this.selectedPersons.includes(Number(transaction.personId)))
+          : res;
+        this.calculateTotals(month);
+        this.cdr.markForCheck();
       });
     });
   }
 
-  calculateTotals(m: any) {
-    m.totalIncome = m.transactions.filter((t:any) => t.type === 0).reduce((a:any, b:any) => a + b.amount, 0);
-    m.totalExpense = m.transactions.filter((t:any) => t.type === 1).reduce((a:any, b:any) => a + b.amount, 0);
-    m.total = m.totalIncome - m.totalExpense;
+  private monthFromId(id: string): DashboardMonth {
+    const [year, month] = id.split('-').map(Number);
+    return {
+      id,
+      year,
+      month,
+      label: new Date(year, month - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
+      transactions: [],
+      totalIncome: 0,
+      totalExpense: 0,
+      total: 0
+    };
   }
 
-  deleteTransaction(id: number) {
-    if(confirm('Tem certeza que deseja excluir este lançamento?')) {
-      this.financeService.deleteTransaction(id).subscribe(() => {
-        this.loadTransactions();
-      });
-    }
+  private calculateTotals(month: DashboardMonth) {
+    month.totalIncome = month.transactions.filter(transaction => transaction.type === 0).reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+    month.totalExpense = month.transactions.filter(transaction => transaction.type === 1).reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+    month.total = month.totalIncome - month.totalExpense;
+  }
+
+  private isCreditExpense(transaction: any) {
+    return transaction.type === 1 && !!transaction.paymentMethod?.isCreditCard;
+  }
+
+  private hasSeries(transaction: any) {
+    return !!transaction.installmentGroupId && (transaction.isFixed || transaction.installmentTotal > 1);
+  }
+
+  private monthId(year: number, month: number) {
+    return `${year}-${String(month).padStart(2, '0')}`;
   }
 }

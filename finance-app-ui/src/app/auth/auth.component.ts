@@ -14,6 +14,8 @@ export class AuthComponent implements OnInit {
   view = signal<'login' | 'register' | 'forgot' | 'reset'>('login');
   email = signal('');
   password = signal('');
+  showPassword = signal(false);
+  showNewPassword = signal(false);
   displayName = signal('');
   inviteCode = signal('');
   resetToken = signal('');
@@ -68,6 +70,8 @@ export class AuthComponent implements OnInit {
   switchView(view: 'login' | 'register' | 'forgot' | 'reset') {
     this.view.set(view);
     this.password.set('');
+    this.showPassword.set(false);
+    this.showNewPassword.set(false);
     this.inviteCode.set('');
     this.displayName.set('');
     this.resetCode.set('');

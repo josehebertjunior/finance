@@ -11,19 +11,25 @@ import { ErrorMessageService } from './services/error-message.service';
   styleUrl: './app.css'
 })
 export class App {
-  protected readonly showNav = signal(true);
+  protected readonly showShell = signal(true);
+  protected readonly sidebarOpen = signal(false);
   protected readonly auth = inject(AuthService);
   protected readonly errorMessages = inject(ErrorMessageService);
 
   constructor(router: Router) {
     router.events.subscribe((event) => {
       if (event instanceof NavigationEnd) {
-        this.showNav.set(!event.urlAfterRedirects.startsWith('/login'));
+        this.showShell.set(!event.urlAfterRedirects.startsWith('/login'));
+        this.sidebarOpen.set(false);
       }
     });
   }
 
   logout() {
     this.auth.clear();
+  }
+
+  toggleSidebar() {
+    this.sidebarOpen.set(!this.sidebarOpen());
   }
 }

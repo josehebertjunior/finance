@@ -49,6 +49,19 @@ describe('AuthService', () => {
     expect(router.navigateByUrl).toHaveBeenCalledWith('/');
   });
 
+  it('reads the .NET role claim used by older tokens', () => {
+    const payload = btoa(JSON.stringify({
+      exp: Math.floor(Date.now() / 1000) + 900,
+      'http://schemas.microsoft.com/ws/2008/06/identity/claims/role': 'Admin'
+    })).replace(/=/g, '');
+    const token = `header.${payload}.signature`;
+
+    service.login('admin@example.com', 'Senha123');
+    httpMock.expectOne('/api/auth/login').flush({ accessToken: token, expiresIn: 900 });
+
+    expect(service.hasRole('Admin')).toBe(true);
+  });
+
   it('shows a clear message when credentials are rejected', () => {
     service.login('ana@example.com', 'senha-incorreta');
 

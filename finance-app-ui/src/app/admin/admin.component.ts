@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -14,6 +14,7 @@ import { AuthService } from '../services/auth.service';
 export class AdminComponent implements OnInit {
   http = inject(HttpClient);
   auth = inject(AuthService);
+  private cdr = inject(ChangeDetectorRef);
 
   apiUrl = 'http://localhost:5078/api/admin';
 
@@ -29,9 +30,9 @@ export class AdminComponent implements OnInit {
   }
 
   loadAdmin() {
-    this.http.get<any[]>(`${this.apiUrl}/invites`).subscribe(res => this.invites = res);
-    this.http.get<any[]>(`${this.apiUrl}/tenants`).subscribe(res => this.tenants = res);
-    this.http.get<any[]>(`${this.apiUrl}/users`).subscribe(res => this.users = res);
+    this.http.get<any[]>(`${this.apiUrl}/invites`).subscribe(res => { this.invites = res; this.cdr.markForCheck(); });
+    this.http.get<any[]>(`${this.apiUrl}/tenants`).subscribe(res => { this.tenants = res; this.cdr.markForCheck(); });
+    this.http.get<any[]>(`${this.apiUrl}/users`).subscribe(res => { this.users = res; this.cdr.markForCheck(); });
   }
 
   createInvite() {

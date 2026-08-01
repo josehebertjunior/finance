@@ -1,9 +1,12 @@
 <div class="auth-shell">
-  <div class="auth-card glass-panel">
+  <div class="auth-orb auth-orb-one"></div>
+  <div class="auth-orb auth-orb-two"></div>
+  <div class="auth-card">
     <div class="auth-header">
       <div>
-        <h1>Finanças Pessoais</h1>
-        <p>Controle seus gastos, acompanhe suas receitas e organize seu orçamento.</p>
+        <span class="auth-kicker">◆ FINANÇAS</span>
+        <h1>Seu dinheiro, com clareza.</h1>
+        <p>Organize gastos, receitas e objetivos em um só lugar.</p>
       </div>
     </div>
 
@@ -11,7 +14,12 @@
       <label>Email</label>
       <input type="email" [(ngModel)]="email" name="loginEmail" required />
       <label>Senha</label>
-      <input type="password" [(ngModel)]="password" name="loginPassword" required />
+      <div class="password-field">
+        <input [type]="showPassword() ? 'text' : 'password'" [(ngModel)]="password" name="loginPassword" required />
+        <button type="button" class="password-toggle" (click)="showPassword.set(!showPassword())" [attr.aria-label]="showPassword() ? 'Ocultar senha' : 'Mostrar senha'">
+          {{ showPassword() ? '◉' : '◌' }}
+        </button>
+      </div>
       <button type="submit" class="primary">Entrar</button>
     </form>
 
@@ -21,7 +29,12 @@
       <label>Email</label>
       <input type="email" [(ngModel)]="email" name="registerEmail" required />
       <label>Senha</label>
-      <input type="password" [(ngModel)]="password" name="registerPassword" required />
+      <div class="password-field">
+        <input [type]="showPassword() ? 'text' : 'password'" [(ngModel)]="password" name="registerPassword" required />
+        <button type="button" class="password-toggle" (click)="showPassword.set(!showPassword())" [attr.aria-label]="showPassword() ? 'Ocultar senha' : 'Mostrar senha'">
+          {{ showPassword() ? '◉' : '◌' }}
+        </button>
+      </div>
       <label>Código do convite</label>
       <input type="text" [(ngModel)]="inviteCode" name="inviteCode" required />
       <p class="invite-note">Registro somente com convite válido enviado pelo administrador.</p>
@@ -38,7 +51,12 @@
       <label>Código</label>
       <input type="text" [(ngModel)]="resetCode" name="resetCode" required />
       <label>Nova senha</label>
-      <input type="password" [(ngModel)]="newPassword" name="newPassword" required />
+      <div class="password-field">
+        <input [type]="showNewPassword() ? 'text' : 'password'" [(ngModel)]="newPassword" name="newPassword" required />
+        <button type="button" class="password-toggle" (click)="showNewPassword.set(!showNewPassword())" [attr.aria-label]="showNewPassword() ? 'Ocultar senha' : 'Mostrar senha'">
+          {{ showNewPassword() ? '◉' : '◌' }}
+        </button>
+      </div>
       <button type="submit" class="primary">Redefinir senha</button>
     </form>
 
@@ -49,7 +67,7 @@
     <div class="auth-footer">
       <button *ngIf="view() !== 'login'" type="button" class="link" (click)="switchView('login')">Voltar ao login</button>
       <button *ngIf="view() === 'login'" type="button" class="link" (click)="switchView('forgot')">Esqueci minha senha</button>
-      <button *ngIf="view() !== 'register'" type="button" class="link" (click)="switchView('register')">Criar conta</button>
+      <span *ngIf="view() === 'login'" class="invite-note">Acesso liberado por convite.</span>
     </div>
   </div>
 </div>

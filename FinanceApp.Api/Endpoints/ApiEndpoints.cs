@@ -122,6 +122,26 @@ public static class ApiEndpoints
             return Results.Ok(await query.ToListAsync());
         });
 
+        api.MapGet("/transactions/{id}", async (HttpContext ctx, int id) =>
+        {
+            var db = ctx.RequestServices.GetRequiredService<FinanceDbContext>();
+            var user = ctx.User;
+            if (!user?.Identity?.IsAuthenticated ?? true) return Results.Unauthorized();
+            var sub = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? user.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+
+            var transaction = await db.Transactions
+                .Include(t => t.Category)
+                .Include(t => t.Person)
+                .Include(t => t.PaymentMethod)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
+            if (transaction == null) return Results.NotFound();
+            if (!user.IsInRole("Admin") && transaction.OwnerId != (sub ?? string.Empty)) return Results.Forbid();
+
+            return Results.Ok(transaction);
+        });
+
         api.MapPost("/transactions", async (HttpContext ctx) =>
         {
             var db = ctx.RequestServices.GetRequiredService<FinanceDbContext>();
@@ -136,7 +156,32 @@ public static class ApiEndpoints
             if (t.Amount <= 0)
                 return Results.BadRequest(new { error = "Amount must be greater than zero." });
 
-            if (t.InstallmentTotal > 1)
+            if (t.IsFixed)
+            {
+                // A conta fixa nasce no mês escolhido e fica disponível nos próximos 11 meses.
+                // Cada ocorrência é um lançamento independente para permitir ajustes pontuais.
+                var groupId = Guid.NewGuid();
+                for (var i = 0; i < 12; i++)
+                {
+                    db.Transactions.Add(new Transaction
+                    {
+                        Description = t.Description,
+                        Amount = t.Amount,
+                        Type = t.Type,
+                        Date = t.Date.AddMonths(i),
+                        ReferenceMonth = t.ReferenceMonth.AddMonths(i),
+                        CategoryId = t.CategoryId,
+                        PersonId = t.PersonId,
+                        PaymentMethodId = t.PaymentMethodId,
+                        IsFixed = true,
+                        InstallmentCurrent = null,
+                        InstallmentTotal = 1,
+                        InstallmentGroupId = groupId,
+                        OwnerId = sub ?? string.Empty
+                    });
+                }
+            }
+            else if (t.InstallmentTotal > 1)
             {
                 var groupId = Guid.NewGuid();
                 for (int i = 0; i < t.InstallmentTotal; i++)
@@ -186,15 +231,29 @@ public static class ApiEndpoints
             if (t == null) return Results.NotFound();
             if (!ctx.User.IsInRole("Admin") && t.OwnerId != (sub ?? string.Empty)) return Results.Forbid();
 
-            t.Description = input.Description;
-            t.Amount = input.Amount;
-            t.Type = input.Type;
-            t.Date = input.Date;
-            t.ReferenceMonth = input.ReferenceMonth;
-            t.CategoryId = input.CategoryId;
-            t.PersonId = input.PersonId;
-            t.PaymentMethodId = input.PaymentMethodId;
-            t.IsFixed = input.IsFixed;
+            var updateSeries = string.Equals(ctx.Request.Query["scope"].FirstOrDefault(), "series", StringComparison.OrdinalIgnoreCase)
+                && t.InstallmentGroupId.HasValue;
+            var targets = updateSeries
+                ? await db.Transactions.Where(item => item.InstallmentGroupId == t.InstallmentGroupId && item.OwnerId == t.OwnerId).ToListAsync()
+                : new List<Transaction> { t };
+
+            foreach (var target in targets)
+            {
+                target.Description = input.Description;
+                target.Amount = input.Amount;
+                target.Type = input.Type;
+                target.CategoryId = input.CategoryId;
+                target.PersonId = input.PersonId;
+                target.PaymentMethodId = input.PaymentMethodId;
+                target.IsFixed = input.IsFixed;
+            }
+
+            // A série mantém os meses já programados. Ao editar apenas um item, sua data e mês podem mudar.
+            if (!updateSeries)
+            {
+                t.Date = input.Date;
+                t.ReferenceMonth = input.ReferenceMonth;
+            }
 
             await db.SaveChangesAsync();
             return Results.Ok(t);
@@ -245,7 +304,19 @@ public static class ApiEndpoints
             var user = ctx.User;
             var sub = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
             if (!user.IsInRole("Admin") && t.OwnerId != (sub ?? string.Empty)) return Results.Forbid();
-            db.Transactions.Remove(t);
+            var deleteSeries = string.Equals(ctx.Request.Query["scope"].FirstOrDefault(), "series", StringComparison.OrdinalIgnoreCase)
+                && t.InstallmentGroupId.HasValue;
+            if (deleteSeries)
+            {
+                var series = await db.Transactions
+                    .Where(item => item.InstallmentGroupId == t.InstallmentGroupId && item.OwnerId == t.OwnerId)
+                    .ToListAsync();
+                db.Transactions.RemoveRange(series);
+            }
+            else
+            {
+                db.Transactions.Remove(t);
+            }
             await db.SaveChangesAsync();
             return Results.Ok();
         });

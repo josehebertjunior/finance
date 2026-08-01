@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -13,6 +13,7 @@ import { FinanceService } from '../services/finance.service';
 export class SettingsComponent implements OnInit {
   financeService = inject(FinanceService);
   http = inject(HttpClient);
+  private cdr = inject(ChangeDetectorRef);
   apiUrl = 'http://localhost:5078/api';
 
   activeTab = 'persons'; // 'persons', 'methods', 'categories'
@@ -30,9 +31,9 @@ export class SettingsComponent implements OnInit {
   }
 
   loadData() {
-    this.financeService.getCategories().subscribe(res => this.categories = res);
-    this.financeService.getPersons().subscribe(res => this.persons = res);
-    this.financeService.getPaymentMethods().subscribe(res => this.paymentMethods = res);
+    this.financeService.getCategories().subscribe(res => { this.categories = res; this.cdr.markForCheck(); });
+    this.financeService.getPersons().subscribe(res => { this.persons = res; this.cdr.markForCheck(); });
+    this.financeService.getPaymentMethods().subscribe(res => { this.paymentMethods = res; this.cdr.markForCheck(); });
   }
 
   addCategory() {
