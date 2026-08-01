@@ -1,0 +1,62 @@
+.admin-shell {
+  padding: 2rem;
+}
+
+.admin-panel {
+  padding: 2rem;
+  display: grid;
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.admin-group {
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+}
+
+.admin-group h2 {
+  margin-top: 0;
+  font-size: 1.25rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+table th,
+ table td {
+  text-align: left;
+  padding: 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+button {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  border: none;
+  border-radius: 14px;
+  color: white;
+  padding: 0.85rem 1.2rem;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: white;
+  margin-top: 0.5rem;
+}
+
+form {
+  display: grid;
+  gap: 1rem;
+}

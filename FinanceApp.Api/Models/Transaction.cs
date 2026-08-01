@@ -30,7 +30,6 @@ public class Transaction
 
     // Ownership
     public string OwnerId { get; set; } = string.Empty;
-    public ApplicationUser? Owner { get; set; }
 }
 
 public enum TransactionType

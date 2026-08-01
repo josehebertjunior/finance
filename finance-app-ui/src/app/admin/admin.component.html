@@ -1,0 +1,90 @@
+<section class="admin-shell">
+  <div class="admin-panel glass-panel">
+    <h1>Administração</h1>
+    <div class="admin-group">
+      <h2>Convites</h2>
+      <form (ngSubmit)="createInvite()">
+        <label>Email do usuário</label>
+        <input type="email" [(ngModel)]="newInvite.email" name="inviteEmail" required />
+        <label>Nome do tenant</label>
+        <input type="text" [(ngModel)]="newInvite.tenantName" name="tenantName" required />
+        <button type="submit">Enviar convite</button>
+      </form>
+      <table>
+        <thead>
+          <tr>
+            <th>Id</th>
+            <th>Email</th>
+            <th>Tenant</th>
+            <th>Expira</th>
+            <th>Usado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let invite of invites">
+            <td>{{ invite.id }}</td>
+            <td>{{ invite.email }}</td>
+            <td>{{ invite.tenantName }}</td>
+            <td>{{ invite.expiresAt | date:'short' }}</td>
+            <td>{{ invite.used ? 'Sim' : 'Não' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="admin-group">
+      <h2>Tenants</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Id</th>
+            <th>Nome</th>
+            <th>Usuários</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let tenant of tenants">
+            <td>{{ tenant.id }}</td>
+            <td>{{ tenant.name }}</td>
+            <td>{{ tenant.userCount }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="admin-group">
+      <h2>Usuários</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Nome</th>
+            <th>Tenant</th>
+            <th>Funções</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let user of users">
+            <td>{{ user.email }}</td>
+            <td>{{ user.displayName }}</td>
+            <td>{{ user.tenantName || 'Nenhum' }}</td>
+            <td>{{ user.roles.join(', ') }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <form (ngSubmit)="assignRole()">
+        <label>Selecionar usuário</label>
+        <select [(ngModel)]="roleAssignment.userId" name="roleUserId" required>
+          <option value="">Escolha usuario</option>
+          <option *ngFor="let user of users" [value]="user.id">{{ user.email }}</option>
+        </select>
+        <label>Função</label>
+        <select [(ngModel)]="roleAssignment.role" name="role" required>
+          <option value="User">User</option>
+          <option value="Admin">Admin</option>
+        </select>
+        <button type="submit">Atribuir função</button>
+      </form>
+    </div>
+  </div>
+</section>

@@ -1,10 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using System.Net;
+using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Identity;
 using FinanceApp.Api.Models;
 using FinanceApp.Api.Endpoints;
+using FinanceApp.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +32,9 @@ builder.Services.AddDbContext<AppIdentityDbContext>(options =>
 builder.Services.AddIdentity<ApplicationUser, Microsoft.AspNetCore.Identity.IdentityRole>()
     .AddEntityFrameworkStores<AppIdentityDbContext>()
     .AddDefaultTokenProviders();
+
+builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
+builder.Services.AddSingleton<IAppEmailSender, SmtpEmailSender>();
 
 builder.Services.AddCors(options =>
 {
@@ -72,6 +78,11 @@ builder.Services.AddAuthentication(options =>
     {
         options.RequireHttpsMetadata = true;
         options.SaveToken = true;
+        var keyBytes = System.Text.Encoding.UTF8.GetBytes(jwtKey);
+        if (keyBytes.Length < 32)
+        {
+            keyBytes = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(jwtKey));
+        }
         options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -80,11 +91,19 @@ builder.Services.AddAuthentication(options =>
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwtIssuer,
             ValidAudience = jwtAudience,
-            IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(jwtKey))
+            IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(keyBytes),
+            RoleClaimType = ClaimTypes.Role
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+    options.AddPolicy("OwnerOrAdmin", policy => policy.Requirements.Add(new FinanceApp.Api.Authorization.IsOwnerOrAdminRequirement()));
+});
+
+builder.Services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, FinanceApp.Api.Authorization.IsOwnerOrAdminHandler>();
+
 // Rate limiting per remote IP
 builder.Services.AddRateLimiter(options =>
 {
@@ -113,25 +132,20 @@ builder.Services.AddRateLimiter(options =>
     });
     options.RejectionStatusCode = 429;
 });
-builder.Services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, FinanceApp.Api.Authorization.IsOwnerOrAdminHandler>();
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("OwnerOrAdmin", policy => policy.Requirements.Add(new FinanceApp.Api.Authorization.IsOwnerOrAdminRequirement()));
-});
 
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
-    db.Database.EnsureCreated();
+    db.Database.Migrate();
 }
 
-// Ensure Identity DB created and seed roles/admin
+// Ensure Identity DB migrated and seed roles/admin
 using (var scope = app.Services.CreateScope())
 {
     var idDb = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
-    idDb.Database.EnsureCreated();
+    idDb.Database.Migrate();
 
     var roleMgr = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     var userMgr = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
@@ -145,7 +159,7 @@ using (var scope = app.Services.CreateScope())
         }
     }
 
-    var adminEmail = builder.Configuration["Admin:Email"] ?? "admin@local";
+    var adminEmail = builder.Configuration["Admin:Email"] ?? "josehebertjr@gmail.com";
     var adminPass = builder.Configuration["Admin:Password"] ?? "Admin123!";
     var admin = userMgr.FindByEmailAsync(adminEmail).Result;
     if (admin == null)
@@ -153,6 +167,13 @@ using (var scope = app.Services.CreateScope())
         admin = new ApplicationUser { UserName = adminEmail, Email = adminEmail, DisplayName = "Administrator" };
         var res = userMgr.CreateAsync(admin, adminPass).Result;
         if (res.Succeeded) userMgr.AddToRoleAsync(admin, "Admin").Wait();
+    }
+    else
+    {
+        if (!userMgr.IsInRoleAsync(admin, "Admin").Result)
+        {
+            userMgr.AddToRoleAsync(admin, "Admin").Wait();
+        }
     }
 }
 
@@ -188,6 +209,7 @@ app.UseAuthorization();
 
 app.MapApiEndpoints();
 app.MapAuthEndpoints();
+app.MapTenantEndpoints();
 
 app.Run();
 

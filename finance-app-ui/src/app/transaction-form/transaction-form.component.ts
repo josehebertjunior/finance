@@ -22,7 +22,7 @@ export class TransactionFormComponent implements OnInit {
     amount: null,
     type: 1, // Default to Expense
     date: new Date().toISOString().split('T')[0],
-    referenceMonth: new Date().toISOString().substring(0, 7), // YYYY-MM
+    referenceMonth: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
     categoryId: null,
     personId: null,
     paymentMethodId: null,
@@ -45,13 +45,16 @@ export class TransactionFormComponent implements OnInit {
     if (!this.isInstallment) {
       this.transaction.installmentTotal = 1;
     }
-    
-    // Convert YYYY-MM back to full date string for backend
-    if (this.transaction.referenceMonth && this.transaction.referenceMonth.length === 7) {
-      this.transaction.referenceMonth = `${this.transaction.referenceMonth}-01`;
-    }
 
-    this.financeService.createTransaction(this.transaction).subscribe({
+    const transactionPayload = {
+      ...this.transaction,
+      referenceMonth: this.transaction.referenceMonth && this.transaction.referenceMonth.length === 7
+        ? `${this.transaction.referenceMonth}-01`
+        : this.transaction.referenceMonth,
+      amount: Number(this.transaction.amount)
+    };
+
+    this.financeService.createTransaction(transactionPayload).subscribe({
       next: () => this.router.navigate(['/']),
       error: (e) => console.error(e)
     });

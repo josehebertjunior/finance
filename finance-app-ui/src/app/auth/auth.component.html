@@ -5,11 +5,6 @@
         <h1>Finanças Pessoais</h1>
         <p>Controle seus gastos, acompanhe suas receitas e organize seu orçamento.</p>
       </div>
-      <nav class="auth-tabs">
-        <button type="button" [class.active]="view() === 'login'" (click)="switchView('login')">Login</button>
-        <button type="button" [class.active]="view() === 'register'" (click)="switchView('register')">Registro</button>
-        <button type="button" [class.active]="view() === 'forgot'" (click)="switchView('forgot')">Esqueci senha</button>
-      </nav>
     </div>
 
     <form *ngIf="view() === 'login'" (ngSubmit)="submitLogin()">
@@ -27,6 +22,9 @@
       <input type="email" [(ngModel)]="email" name="registerEmail" required />
       <label>Senha</label>
       <input type="password" [(ngModel)]="password" name="registerPassword" required />
+      <label>Código do convite</label>
+      <input type="text" [(ngModel)]="inviteCode" name="inviteCode" required />
+      <p class="invite-note">Registro somente com convite válido enviado pelo administrador.</p>
       <button type="submit" class="secondary">Criar conta</button>
     </form>
 
@@ -36,19 +34,22 @@
       <button type="submit" class="ghost">Enviar instruções</button>
     </form>
 
-    <div *ngIf="auth.error()" class="auth-alert" [class.success]="auth.error() === 'Conta criada com sucesso. Faça login.'">
+    <form *ngIf="view() === 'reset'" (ngSubmit)="submitReset()">
+      <label>Código</label>
+      <input type="text" [(ngModel)]="resetCode" name="resetCode" required />
+      <label>Nova senha</label>
+      <input type="password" [(ngModel)]="newPassword" name="newPassword" required />
+      <button type="submit" class="primary">Redefinir senha</button>
+    </form>
+
+    <div *ngIf="auth.error()" class="auth-alert" [class.success]="auth.error() === 'Conta criada com sucesso. Faça login.' || auth.error() === 'Senha redefinida com sucesso. Faça login.'">
       {{ auth.error() }}
     </div>
-    <div *ngIf="view() === 'login'" class="auth-footer">
-      <button type="button" class="link" (click)="switchView('forgot')">Esqueci minha senha</button>
-      <button type="button" class="link" (click)="switchView('register')">Ainda não tenho conta</button>
-    </div>
-  </div>
 
-  <div class="auth-side">
-    <div>
-      <h2>Bem-vindo de volta</h2>
-      <p>Use sua conta para acessar as finanças, ver relatórios e manter seu fluxo de caixa sob controle.</p>
+    <div class="auth-footer">
+      <button *ngIf="view() !== 'login'" type="button" class="link" (click)="switchView('login')">Voltar ao login</button>
+      <button *ngIf="view() === 'login'" type="button" class="link" (click)="switchView('forgot')">Esqueci minha senha</button>
+      <button *ngIf="view() !== 'register'" type="button" class="link" (click)="switchView('register')">Criar conta</button>
     </div>
   </div>
 </div>

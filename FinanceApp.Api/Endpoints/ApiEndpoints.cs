@@ -233,9 +233,9 @@ public static class ApiEndpoints
             var depositsQ = db.Transactions.Where(t => t.Type == TransactionType.SavingsDeposit).AsQueryable();
             var withdrawalsQ = db.Transactions.Where(t => t.Type == TransactionType.SavingsWithdrawal).AsQueryable();
             if (!user.IsInRole("Admin") && !string.IsNullOrEmpty(sub)) { depositsQ = depositsQ.Where(t => t.OwnerId == sub); withdrawalsQ = withdrawalsQ.Where(t => t.OwnerId == sub); }
-            var deposits = await depositsQ.SumAsync(t => (decimal?)t.Amount) ?? 0m;
-            var withdrawals = await withdrawalsQ.SumAsync(t => (decimal?)t.Amount) ?? 0m;
-            return Results.Ok(new { Balance = deposits - withdrawals });
+            var deposits = await depositsQ.Select(t => (double?)t.Amount).SumAsync() ?? 0.0;
+            var withdrawals = await withdrawalsQ.Select(t => (double?)t.Amount).SumAsync() ?? 0.0;
+            return Results.Ok(new { Balance = (decimal)deposits - (decimal)withdrawals });
         });
 
         api.MapDelete("/transactions/{id}", async (FinanceDbContext db, HttpContext ctx, int id) =>

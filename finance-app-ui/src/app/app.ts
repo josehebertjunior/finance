@@ -1,6 +1,7 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, inject } from '@angular/core';
 import { Router, RouterOutlet, RouterModule, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { AuthService } from './services/auth.service';
 
 @Component({
   selector: 'app-root',
@@ -10,6 +11,7 @@ import { CommonModule } from '@angular/common';
 })
 export class App {
   protected readonly showNav = signal(true);
+  protected readonly auth = inject(AuthService);
 
   constructor(router: Router) {
     router.events.subscribe((event) => {
@@ -17,5 +19,9 @@ export class App {
         this.showNav.set(!event.urlAfterRedirects.startsWith('/login'));
       }
     });
+  }
+
+  logout() {
+    this.auth.clear();
   }
 }
