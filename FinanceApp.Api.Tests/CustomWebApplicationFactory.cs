@@ -1,3 +1,6 @@
+#nullable enable
+
+using System.Linq;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;

@@ -1,91 +1,74 @@
 using System;
-using System.Linq;
 using System.Net;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using FinanceApp.Api.Models;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+using FluentAssertions;
 using Xunit;
 
 namespace FinanceApp.Api.Tests;
 
-public class ApiTests : IClassFixture<WebApplicationFactory<Program>>
+/// <summary>
+/// Integration tests for the business endpoints. The factory replaces the
+/// application database with SQLite in-memory, so these requests never touch
+/// the developer database.
+/// </summary>
+[Collection("API integration")]
+public class ApiTests
 {
-    private readonly WebApplicationFactory<Program> factory;
+    private readonly CustomWebApplicationFactory _factory;
 
-    public ApiTests(WebApplicationFactory<Program> factory)
+    public ApiTests(CustomWebApplicationFactory factory) => _factory = factory;
+
+    [Fact]
+    public async Task Categories_CanBeCreatedUpdatedAndListed()
     {
-        this.factory = factory.WithWebHostBuilder(builder =>
-        {
-            builder.ConfigureServices(services =>
-            {
-                var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<FinanceDbContext>));
-                if (descriptor != null)
-                {
-                    services.Remove(descriptor);
-                }
+        var client = _factory.CreateClient();
+        var category = new Category { Name = "Transporte", ColorHex = "#123456" };
 
-                var connection = new SqliteConnection("DataSource=:memory:");
-                connection.Open();
+        var createResponse = await client.PostAsJsonAsync("/api/categories", category);
 
-                services.AddDbContext<FinanceDbContext>(options => options.UseSqlite(connection));
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = await createResponse.Content.ReadFromJsonAsync<Category>();
+        created.Should().NotBeNull();
+        created!.Id.Should().BeGreaterThan(0);
 
-                var serviceProvider = services.BuildServiceProvider();
-                using var scope = serviceProvider.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
-                db.Database.EnsureCreated();
-            });
-        });
+        created.Name = "Mobilidade";
+        var updateResponse = await client.PutAsJsonAsync($"/api/categories/{created.Id}", created);
+
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var categories = await client.GetFromJsonAsync<Category[]>("/api/categories");
+        categories.Should().ContainSingle(c => c.Id == created.Id && c.Name == "Mobilidade");
     }
 
     [Fact]
-    public async Task GetCategories_ReturnsOk_AndEmptyArray()
+    public async Task Category_WithBlankName_IsRejected()
     {
-        var client = factory.CreateClient();
-        var response = await client.GetAsync("/api/categories");
+        var client = _factory.CreateClient();
 
-        response.EnsureSuccessStatusCode();
-        var categories = await response.Content.ReadFromJsonAsync<Category[]>();
+        var response = await client.PostAsJsonAsync("/api/categories", new Category { Name = "  " });
 
-        Assert.NotNull(categories);
-        Assert.Empty(categories);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
-    public async Task PostCategory_CreatesCategory()
+    public async Task Transactions_RequireAnAuthenticatedUser()
     {
-        var client = factory.CreateClient();
-        var newCategory = new Category { Name = "Transporte", ColorHex = "#123456" };
-
-        var response = await client.PostAsJsonAsync("/api/categories", newCategory);
-        response.EnsureSuccessStatusCode();
-
-        var created = await response.Content.ReadFromJsonAsync<Category>();
-        Assert.NotNull(created);
-        Assert.Equal("Transporte", created.Name);
-        Assert.Equal("#123456", created.ColorHex);
-        Assert.True(created.Id > 0);
-    }
-
-    [Fact]
-    public async Task PostTransaction_WithNegativeAmount_ReturnsBadRequest()
-    {
-        var client = factory.CreateClient();
+        var client = _factory.CreateClient();
         var transaction = new Transaction
         {
-            Description = "Test",
-            Amount = -10,
+            Description = "Conta de luz",
+            Amount = 120m,
             Type = TransactionType.Expense,
             Date = DateTime.UtcNow,
             ReferenceMonth = DateTime.UtcNow,
             InstallmentTotal = 1
         };
 
-        var response = await client.PostAsJsonAsync("/api/transactions", transaction);
+        var getResponse = await client.GetAsync("/api/transactions?year=2026&month=7");
+        var postResponse = await client.PostAsJsonAsync("/api/transactions", transaction);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        getResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        postResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 }

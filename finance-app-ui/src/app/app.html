@@ -1,4 +1,8 @@
 <main>
+  <div *ngIf="errorMessages.message()" class="app-alert" role="alert" aria-live="assertive">
+    <span>{{ errorMessages.message() }}</span>
+    <button type="button" aria-label="Fechar mensagem" (click)="errorMessages.clear()">&times;</button>
+  </div>
   <nav *ngIf="showNav()" class="glass-panel app-nav">
     <h2 class="brand">
       <span>◆</span> Finanças

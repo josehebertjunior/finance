@@ -13,7 +13,7 @@ export class FinanceService {
   private auth = inject(AuthService);
 
   private getAuthHeaders(): { headers?: HttpHeaders } {
-    const token = this.auth.accessToken();
+    const token = this.auth.isAuthenticated() ? this.auth.accessToken() : null;
     if (!token) {
       return {};
     }

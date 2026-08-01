@@ -2,6 +2,7 @@ import { Component, signal, inject } from '@angular/core';
 import { Router, RouterOutlet, RouterModule, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from './services/auth.service';
+import { ErrorMessageService } from './services/error-message.service';
 
 @Component({
   selector: 'app-root',
@@ -12,6 +13,7 @@ import { AuthService } from './services/auth.service';
 export class App {
   protected readonly showNav = signal(true);
   protected readonly auth = inject(AuthService);
+  protected readonly errorMessages = inject(ErrorMessageService);
 
   constructor(router: Router) {
     router.events.subscribe((event) => {
