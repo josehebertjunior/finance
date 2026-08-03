@@ -146,7 +146,8 @@ public static class ApiEndpoints
             }
 
             var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
-            query = query.Where(t => ownerIds.Contains(t.OwnerId));
+            var activeTenantId = await GetActiveTenantIdAsync(ctx);
+            query = query.Where(t => ownerIds.Contains(t.OwnerId) && t.TenantId == activeTenantId);
 
             return Results.Ok(await query.ToListAsync());
         });
@@ -167,7 +168,7 @@ public static class ApiEndpoints
 
             if (transaction == null) return Results.NotFound();
             var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
-            if (!ownerIds.Contains(transaction.OwnerId)) return Results.Forbid();
+            if (!ownerIds.Contains(transaction.OwnerId) || transaction.TenantId != await GetActiveTenantIdAsync(ctx)) return Results.Forbid();
 
             return Results.Ok(transaction);
         });
@@ -214,7 +215,8 @@ public static class ApiEndpoints
                         InstallmentCurrent = null,
                         InstallmentTotal = 1,
                         InstallmentGroupId = groupId,
-                        OwnerId = sub ?? string.Empty
+                        OwnerId = sub ?? string.Empty,
+                        TenantId = activeTenantId
                     });
                 }
             }
@@ -237,7 +239,8 @@ public static class ApiEndpoints
                         InstallmentCurrent = (t.InstallmentCurrent ?? 1) + i,
                         InstallmentTotal = t.InstallmentTotal,
                         InstallmentGroupId = groupId,
-                        OwnerId = sub ?? string.Empty
+                        OwnerId = sub ?? string.Empty,
+                        TenantId = activeTenantId
                     };
                     db.Transactions.Add(installment);
                 }
@@ -245,6 +248,7 @@ public static class ApiEndpoints
             else
             {
                 t.OwnerId = sub ?? string.Empty;
+                t.TenantId = activeTenantId;
                 db.Transactions.Add(t);
             }
 
@@ -274,12 +278,12 @@ public static class ApiEndpoints
             var t = await db.Transactions.FindAsync(id);
             if (t == null) return Results.NotFound();
             var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
-            if (!ownerIds.Contains(t.OwnerId)) return Results.Forbid();
+            if (!ownerIds.Contains(t.OwnerId) || t.TenantId != activeTenantId) return Results.Forbid();
 
             var updateSeries = string.Equals(ctx.Request.Query["scope"].FirstOrDefault(), "series", StringComparison.OrdinalIgnoreCase)
                 && t.InstallmentGroupId.HasValue;
             var targets = updateSeries
-                ? await db.Transactions.Where(item => item.InstallmentGroupId == t.InstallmentGroupId && item.OwnerId == t.OwnerId).ToListAsync()
+                ? await db.Transactions.Where(item => item.InstallmentGroupId == t.InstallmentGroupId && item.OwnerId == t.OwnerId && item.TenantId == activeTenantId).ToListAsync()
                 : new List<Transaction> { t };
 
             foreach (var target in targets)
@@ -314,7 +318,8 @@ public static class ApiEndpoints
 
             var baseQuery = db.Transactions.Where(t => t.ReferenceMonth >= start && t.ReferenceMonth < end && t.Type == TransactionType.Expense).Include(t => t.Category).AsQueryable();
             var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
-            baseQuery = baseQuery.Where(t => ownerIds.Contains(t.OwnerId));
+            var activeTenantId = await GetActiveTenantIdAsync(ctx);
+            baseQuery = baseQuery.Where(t => ownerIds.Contains(t.OwnerId) && t.TenantId == activeTenantId);
 
             var expenses = await baseQuery.ToListAsync();
 
@@ -338,8 +343,9 @@ public static class ApiEndpoints
             var depositsQ = db.Transactions.Where(t => t.Type == TransactionType.SavingsDeposit).AsQueryable();
             var withdrawalsQ = db.Transactions.Where(t => t.Type == TransactionType.SavingsWithdrawal).AsQueryable();
             var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
-            depositsQ = depositsQ.Where(t => ownerIds.Contains(t.OwnerId));
-            withdrawalsQ = withdrawalsQ.Where(t => ownerIds.Contains(t.OwnerId));
+            var activeTenantId = await GetActiveTenantIdAsync(ctx);
+            depositsQ = depositsQ.Where(t => ownerIds.Contains(t.OwnerId) && t.TenantId == activeTenantId);
+            withdrawalsQ = withdrawalsQ.Where(t => ownerIds.Contains(t.OwnerId) && t.TenantId == activeTenantId);
             var deposits = await depositsQ.Select(t => (double?)t.Amount).SumAsync() ?? 0.0;
             var withdrawals = await withdrawalsQ.Select(t => (double?)t.Amount).SumAsync() ?? 0.0;
             return Results.Ok(new { Balance = (decimal)deposits - (decimal)withdrawals });
@@ -352,13 +358,14 @@ public static class ApiEndpoints
             var user = ctx.User;
             var sub = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
             var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
-            if (!ownerIds.Contains(t.OwnerId)) return Results.Forbid();
+            var activeTenantId = await GetActiveTenantIdAsync(ctx);
+            if (!ownerIds.Contains(t.OwnerId) || t.TenantId != activeTenantId) return Results.Forbid();
             var deleteSeries = string.Equals(ctx.Request.Query["scope"].FirstOrDefault(), "series", StringComparison.OrdinalIgnoreCase)
                 && t.InstallmentGroupId.HasValue;
             if (deleteSeries)
             {
                 var series = await db.Transactions
-                    .Where(item => item.InstallmentGroupId == t.InstallmentGroupId && item.OwnerId == t.OwnerId)
+                    .Where(item => item.InstallmentGroupId == t.InstallmentGroupId && item.OwnerId == t.OwnerId && item.TenantId == activeTenantId)
                     .ToListAsync();
                 db.Transactions.RemoveRange(series);
             }
