@@ -24,6 +24,12 @@
         <a *ngIf="auth.hasRole('Admin')" routerLink="/admin" routerLinkActive="active"><span>♧</span> Convites e acessos</a>
       </nav>
       <div class="sidebar-footer">
+        <label *ngIf="auth.groups().length" class="group-switcher">
+          <span>Grupo ativo</span>
+          <select [ngModel]="auth.activeTenantId()" (ngModelChange)="auth.changeActiveGroup($event)">
+            <option *ngFor="let group of auth.groups()" [value]="group.tenantId">{{ group.name }}</option>
+          </select>
+        </label>
         <span class="signed-in">Sessão ativa</span>
         <button type="button" (click)="logout()"><span>↪</span> Sair</button>
       </div>

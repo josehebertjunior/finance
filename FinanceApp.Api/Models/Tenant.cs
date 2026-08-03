@@ -17,5 +17,7 @@ public class Tenant
     [InverseProperty(nameof(ApplicationUser.Tenant))]
     public ICollection<ApplicationUser> Users { get; set; } = new List<ApplicationUser>();
 
+    public ICollection<TenantMembership> Memberships { get; set; } = new List<TenantMembership>();
+
     public ICollection<InviteToken> Invites { get; set; } = new List<InviteToken>();
 }

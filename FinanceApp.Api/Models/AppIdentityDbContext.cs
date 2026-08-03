@@ -11,6 +11,7 @@ public class AppIdentityDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<RefreshToken>? RefreshTokens { get; set; }
     public DbSet<Tenant>? Tenants { get; set; }
+    public DbSet<TenantMembership>? TenantMemberships { get; set; }
     public DbSet<InviteToken>? InviteTokens { get; set; }
     public DbSet<PasswordResetRequest>? PasswordResetRequests { get; set; }
 
@@ -30,5 +31,20 @@ public class AppIdentityDbContext : IdentityDbContext<ApplicationUser>
             .WithMany(u => u.CreatedTenants)
             .HasForeignKey(t => t.CreatedById)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<TenantMembership>()
+            .HasKey(membership => new { membership.UserId, membership.TenantId });
+
+        builder.Entity<TenantMembership>()
+            .HasOne(membership => membership.User)
+            .WithMany(user => user.TenantMemberships)
+            .HasForeignKey(membership => membership.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<TenantMembership>()
+            .HasOne(membership => membership.Tenant)
+            .WithMany(tenant => tenant.Memberships)
+            .HasForeignKey(membership => membership.TenantId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

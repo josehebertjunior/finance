@@ -16,4 +16,6 @@ public class ApplicationUser : IdentityUser
 
     [InverseProperty(nameof(Tenant.CreatedBy))]
     public ICollection<Tenant> CreatedTenants { get; set; } = new List<Tenant>();
+
+    public ICollection<TenantMembership> TenantMemberships { get; set; } = new List<TenantMembership>();
 }

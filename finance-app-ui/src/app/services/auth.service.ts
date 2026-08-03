@@ -6,6 +6,7 @@ import { ErrorMessageService } from './error-message.service';
 import { environment } from '../../environments/environment';
 
 interface LoginResult { accessToken: string; expiresIn: number }
+interface GroupAccess { activeTenantId: string | null; groups: { tenantId: string; name: string }[] }
 
 interface JwtClaims {
   role?: string | string[];
@@ -26,6 +27,10 @@ export class AuthService {
   public accessToken = this._accessToken.asReadonly();
   private _roles = signal<string[]>([]);
   public roles = this._roles.asReadonly();
+  private _groups = signal<{ tenantId: string; name: string }[]>([]);
+  public groups = this._groups.asReadonly();
+  private _activeTenantId = signal<string | null>(null);
+  public activeTenantId = this._activeTenantId.asReadonly();
   private _error = signal<string | null>(null);
   public error = this._error.asReadonly();
   private _sessionPrompt = signal(false);
@@ -130,6 +135,23 @@ export class AuthService {
     return this._roles().includes(role);
   }
 
+  loadGroups() {
+    if (!this.isAuthenticated()) return;
+    this.http.get<GroupAccess>(`${this.apiUrl}/auth/groups`).subscribe({
+      next: result => {
+        this._groups.set(result.groups);
+        this._activeTenantId.set(result.activeTenantId);
+      }
+    });
+  }
+
+  changeActiveGroup(tenantId: string) {
+    if (!tenantId || tenantId === this._activeTenantId()) return;
+    this.http.post(`${this.apiUrl}/auth/active-group`, { tenantId }).subscribe({
+      next: () => window.location.reload()
+    });
+  }
+
   isAuthenticated() {
     const token = this._accessToken();
     return !!token && !this.isTokenExpired(token);
@@ -139,6 +161,8 @@ export class AuthService {
     this.stopSessionTimers();
     this._accessToken.set(null);
     this._roles.set([]);
+    this._groups.set([]);
+    this._activeTenantId.set(null);
     localStorage.removeItem('accessToken');
     this._error.set('Sua sessão expirou. Entre novamente para continuar.');
     this.router.navigateByUrl('/login');
@@ -208,6 +232,8 @@ export class AuthService {
     this.stopSessionTimers();
     this._accessToken.set(null);
     this._roles.set([]);
+    this._groups.set([]);
+    this._activeTenantId.set(null);
     localStorage.removeItem('accessToken');
     const csrf = this.getCsrfToken();
     const headers = csrf ? new HttpHeaders({ 'X-CSRF-Token': csrf }) : undefined;

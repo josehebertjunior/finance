@@ -25,6 +25,7 @@ export class AdminComponent implements OnInit {
 
   newInvite = { email: '', tenantName: '' };
   roleAssignment = { userId: '', role: 'User' };
+  tenantAssignment = { userId: '', tenantId: '' };
   createdInviteUrl = '';
   copiedInviteUrl = false;
 
@@ -64,5 +65,12 @@ export class AdminComponent implements OnInit {
     this.http.post(`${this.apiUrl}/users/${this.roleAssignment.userId}/roles`, this.roleAssignment).subscribe(() => {
       this.loadAdmin();
     });
+  }
+
+  assignTenant() {
+    if (!this.tenantAssignment.userId || !this.tenantAssignment.tenantId) return;
+    this.http.post(`${this.apiUrl}/users/${this.tenantAssignment.userId}/assign-tenant`, {
+      tenantId: this.tenantAssignment.tenantId
+    }).subscribe(() => this.loadAdmin());
   }
 }

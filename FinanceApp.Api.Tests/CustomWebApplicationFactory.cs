@@ -1,12 +1,14 @@
 #nullable enable
 
 using System.Linq;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using FinanceApp.Api.Models;
 
 namespace FinanceApp.Api.Tests;
@@ -19,6 +21,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
+
+        builder.ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Database=tests;Username=test;Password=test"
+        }));
 
         builder.ConfigureServices(services =>
         {

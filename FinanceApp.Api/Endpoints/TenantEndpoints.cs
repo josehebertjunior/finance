@@ -39,6 +39,13 @@ public static class TenantEndpoints
                 await idDb.SaveChangesAsync();
             }
 
+            await EnsureMembershipAsync(idDb, adminUser.Id, tenant.Id);
+            if (string.IsNullOrWhiteSpace(adminUser.TenantId))
+            {
+                adminUser.TenantId = tenant.Id;
+                await userManager.UpdateAsync(adminUser);
+            }
+
             var invite = new InviteToken
             {
                 Email = dto.Email,
@@ -71,13 +78,17 @@ public static class TenantEndpoints
 
         group.MapGet("/tenants", async (AppIdentityDbContext idDb) =>
         {
-            var tenants = await idDb.Tenants!.Include(t => t.Users).ToListAsync();
-            return Results.Ok(tenants.Select(t => new { t.Id, t.Name, t.CreatedAt, UserCount = t.Users?.Count ?? 0 }));
+            var tenants = await idDb.Tenants!.Include(t => t.Memberships).ToListAsync();
+            return Results.Ok(tenants.Select(t => new { t.Id, t.Name, t.CreatedAt, UserCount = t.Memberships.Count }));
         });
 
         group.MapGet("/users", async (AppIdentityDbContext idDb, UserManager<ApplicationUser> userManager) =>
         {
-            var users = await idDb.Users.Include(u => u.Tenant).ToListAsync();
+            var users = await idDb.Users
+                .Include(u => u.Tenant)
+                .Include(u => u.TenantMemberships)
+                .ThenInclude(membership => membership.Tenant)
+                .ToListAsync();
             var userDtos = new List<object>();
             foreach (var user in users)
             {
@@ -89,6 +100,9 @@ public static class TenantEndpoints
                     user.DisplayName,
                     user.TenantId,
                     TenantName = user.Tenant?.Name,
+                    Groups = user.TenantMemberships
+                        .OrderBy(membership => membership.Tenant!.Name)
+                        .Select(membership => new { membership.TenantId, Name = membership.Tenant!.Name }),
                     Roles = roles
                 });
             }
@@ -101,6 +115,7 @@ public static class TenantEndpoints
             if (user == null) return Results.NotFound();
             var tenant = await idDb.Tenants!.FindAsync(dto.TenantId);
             if (tenant == null) return Results.BadRequest(new { error = "Tenant not found." });
+            await EnsureMembershipAsync(idDb, user.Id, tenant.Id);
             user.TenantId = tenant.Id;
             await userManager.UpdateAsync(user);
             return Results.Ok();
@@ -141,6 +156,17 @@ public static class TenantEndpoints
             InviteUrl = inviteUrl,
             Message = "Link de convite gerado. Copie e envie ao convidado."
         };
+    }
+
+    private static async Task EnsureMembershipAsync(AppIdentityDbContext idDb, string userId, string tenantId)
+    {
+        var exists = await idDb.TenantMemberships!
+            .AnyAsync(membership => membership.UserId == userId && membership.TenantId == tenantId);
+        if (!exists)
+        {
+            idDb.TenantMemberships!.Add(new TenantMembership { UserId = userId, TenantId = tenantId });
+            await idDb.SaveChangesAsync();
+        }
     }
 
     public record CreateInviteDto(string Email, string TenantName);
