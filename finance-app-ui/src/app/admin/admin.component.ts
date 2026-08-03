@@ -25,6 +25,8 @@ export class AdminComponent implements OnInit {
 
   newInvite = { email: '', tenantName: '' };
   roleAssignment = { userId: '', role: 'User' };
+  createdInviteUrl = '';
+  copiedInviteUrl = false;
 
   ngOnInit() {
     this.loadAdmin();
@@ -38,10 +40,23 @@ export class AdminComponent implements OnInit {
 
   createInvite() {
     if (!this.newInvite.email || !this.newInvite.tenantName) return;
-    this.http.post(`${this.apiUrl}/invites`, this.newInvite).subscribe(() => {
+    this.http.post<any>(`${this.apiUrl}/invites`, this.newInvite).subscribe(response => {
+      this.createdInviteUrl = response.inviteUrl;
+      this.copiedInviteUrl = false;
       this.newInvite = { email: '', tenantName: '' };
       this.loadAdmin();
     });
+  }
+
+  inviteUrl(token: string) {
+    return `${window.location.origin}/login?invite=${encodeURIComponent(token)}`;
+  }
+
+  async copyInviteUrl(url: string) {
+    await navigator.clipboard.writeText(url);
+    this.createdInviteUrl = url;
+    this.copiedInviteUrl = true;
+    this.cdr.markForCheck();
   }
 
   assignRole() {

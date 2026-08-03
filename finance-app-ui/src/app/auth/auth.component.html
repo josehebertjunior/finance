@@ -35,9 +35,14 @@
           {{ showPassword() ? '◉' : '◌' }}
         </button>
       </div>
-      <label>Código do convite</label>
-      <input type="text" [(ngModel)]="inviteCode" name="inviteCode" required />
-      <p class="invite-note">Registro somente com convite válido enviado pelo administrador.</p>
+      <ng-container *ngIf="inviteCode(); else manualInviteCode">
+        <p class="invite-note">Convite aplicado. Defina seus dados para finalizar o cadastro.</p>
+      </ng-container>
+      <ng-template #manualInviteCode>
+        <label>Código do convite</label>
+        <input type="text" [(ngModel)]="inviteCode" name="inviteCode" required />
+        <p class="invite-note">Registro somente com convite válido enviado pelo administrador.</p>
+      </ng-template>
       <button type="submit" class="secondary">Criar conta</button>
     </form>
 
