@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { FinanceService } from '../services/finance.service';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-settings',
@@ -14,7 +15,7 @@ export class SettingsComponent implements OnInit {
   financeService = inject(FinanceService);
   http = inject(HttpClient);
   private cdr = inject(ChangeDetectorRef);
-  apiUrl = 'http://localhost:5078/api';
+  readonly apiUrl = environment.apiUrl;
 
   activeTab = 'persons'; // 'persons', 'methods', 'categories'
 

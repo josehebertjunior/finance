@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../services/auth.service';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-admin',
@@ -16,7 +17,7 @@ export class AdminComponent implements OnInit {
   auth = inject(AuthService);
   private cdr = inject(ChangeDetectorRef);
 
-  apiUrl = 'http://localhost:5078/api/admin';
+  readonly apiUrl = `${environment.apiUrl}/admin`;
 
   invites: any[] = [];
   tenants: any[] = [];
