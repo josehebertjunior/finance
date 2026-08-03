@@ -30,6 +30,8 @@ export class ErrorMessageService {
         return 'Não encontramos a informação solicitada.';
       case 409:
         return 'Já existe um cadastro com estas informações.';
+      case 422:
+        return this.fromApi(error) ?? fallback;
       case 429:
         return 'Muitas tentativas em pouco tempo. Aguarde um minuto e tente novamente.';
       default:
