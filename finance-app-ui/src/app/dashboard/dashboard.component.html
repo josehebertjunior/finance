@@ -47,7 +47,7 @@
           </li>
         </ul>
         <section *ngIf="fixedExpenseGroup(month) as group" class="fixed-bills">
-          <header class="invoice-header"><div><span class="invoice-kicker">CONTAS FIXAS E PARCELAS</span><strong>Débito / dinheiro</strong></div><strong>- R$ {{ group.total | number:'1.2-2' }}</strong></header>
+          <header class="invoice-header"><div><span class="invoice-kicker">CONTAS FIXAS E PARCELAS</span><strong>Débito / Dinheiro</strong></div><strong>- R$ {{ group.total | number:'1.2-2' }}</strong></header>
           <ul class="invoice-list"><li *ngFor="let transaction of group.transactions"><span class="transaction-type expense">↓</span><div class="transaction-main"><strong>{{ transaction.description }} <em *ngIf="transaction.installmentTotal > 1" class="installment-badge">{{ transaction.installmentCurrent || 1 }}/{{ transaction.installmentTotal }}</em></strong><span>{{ transaction.category?.name || 'Sem categoria' }}<ng-container *ngIf="transaction.person"> · {{ transaction.person.name }}</ng-container></span></div><div class="transaction-value expense"><strong>- R$ {{ transaction.amount | number:'1.2-2' }}</strong><span class="row-actions"><a [routerLink]="['/edit', transaction.id]" aria-label="Editar lançamento">✎</a><button type="button" (click)="requestDeletion(transaction)" aria-label="Excluir lançamento">×</button></span></div></li></ul>
         </section>
         <section *ngFor="let group of creditCardGroups(month)" class="credit-invoice">
