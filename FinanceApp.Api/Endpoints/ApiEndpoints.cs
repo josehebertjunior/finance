@@ -9,6 +9,13 @@ namespace FinanceApp.Api.Endpoints;
 
 public static class ApiEndpoints
 {
+    private static DateTime AsUtc(DateTime value) => value.Kind switch
+    {
+        DateTimeKind.Utc => value,
+        DateTimeKind.Local => value.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+    };
+
     public static void MapApiEndpoints(this WebApplication app)
     {
         var api = app.MapGroup("/api");
@@ -109,7 +116,7 @@ public static class ApiEndpoints
             var q = ctx.Request.Query;
             if (q.TryGetValue("year", out var ys) && q.TryGetValue("month", out var ms) && int.TryParse(ys.FirstOrDefault(), out var y) && int.TryParse(ms.FirstOrDefault(), out var m))
             {
-                var start = new DateTime(y, m, 1);
+                var start = AsUtc(new DateTime(y, m, 1));
                 var end = start.AddMonths(1);
                 query = query.Where(t => t.ReferenceMonth >= start && t.ReferenceMonth < end);
             }
@@ -155,6 +162,9 @@ public static class ApiEndpoints
                 return Results.BadRequest(new { error = "Description is required." });
             if (t.Amount <= 0)
                 return Results.BadRequest(new { error = "Amount must be greater than zero." });
+
+            t.Date = AsUtc(t.Date);
+            t.ReferenceMonth = AsUtc(t.ReferenceMonth);
 
             if (t.IsFixed)
             {
@@ -227,6 +237,9 @@ public static class ApiEndpoints
             if (string.IsNullOrWhiteSpace(input.Description)) return Results.BadRequest(new { error = "Description is required." });
             if (input.Amount <= 0) return Results.BadRequest(new { error = "Amount must be greater than zero." });
 
+            input.Date = AsUtc(input.Date);
+            input.ReferenceMonth = AsUtc(input.ReferenceMonth);
+
             var t = await db.Transactions.FindAsync(id);
             if (t == null) return Results.NotFound();
             if (!ctx.User.IsInRole("Admin") && t.OwnerId != (sub ?? string.Empty)) return Results.Forbid();
@@ -261,7 +274,7 @@ public static class ApiEndpoints
 
         api.MapGet("/summary/by-category", async (FinanceDbContext db, HttpContext ctx, int year, int month) =>
         {
-            var start = new DateTime(year, month, 1);
+            var start = AsUtc(new DateTime(year, month, 1));
             var end = start.AddMonths(1);
 
             var user = ctx.User;
