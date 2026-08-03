@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.HttpOverrides;
+using Npgsql;
 using FinanceApp.Api.Models;
 using FinanceApp.Api.Endpoints;
 using FinanceApp.Api.Services;
@@ -24,6 +25,7 @@ builder.Services.AddSwaggerGen();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("A conexão DefaultConnection não foi configurada.");
+connectionString = NormalizePostgresConnectionString(connectionString);
 var usePostgres = !connectionString.Contains("Data Source=", StringComparison.OrdinalIgnoreCase)
     && !connectionString.EndsWith(".sqlite", StringComparison.OrdinalIgnoreCase);
 
@@ -267,6 +269,29 @@ static async Task EnsureSchemaAsync(DbContext context, string markerTable)
     {
         await connection.CloseAsync();
     }
+}
+
+static string NormalizePostgresConnectionString(string connectionString)
+{
+    if (!Uri.TryCreate(connectionString, UriKind.Absolute, out var uri)
+        || (uri.Scheme != "postgres" && uri.Scheme != "postgresql"))
+    {
+        return connectionString;
+    }
+
+    var credentials = uri.UserInfo.Split(':', 2);
+    if (credentials.Length != 2)
+        throw new InvalidOperationException("A URL de conexao PostgreSQL precisa conter usuario e senha.");
+
+    return new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.IsDefaultPort ? 5432 : uri.Port,
+        Database = uri.AbsolutePath.Trim('/'),
+        Username = Uri.UnescapeDataString(credentials[0]),
+        Password = Uri.UnescapeDataString(credentials[1]),
+        SslMode = SslMode.Require
+    }.ConnectionString;
 }
 
 public partial class Program { }
