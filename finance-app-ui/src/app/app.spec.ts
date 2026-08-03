@@ -15,10 +15,10 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
-  it('should render the Finanças brand in the sidebar', async () => {
+  it('does not render the protected sidebar before navigation is resolved', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.brand')?.textContent).toContain('Finanças');
+    expect(compiled.querySelector('.brand')).toBeNull();
   });
 });

@@ -11,7 +11,9 @@ import { ErrorMessageService } from './services/error-message.service';
   styleUrl: './app.css'
 })
 export class App {
-  protected readonly showShell = signal(true);
+  // Start hidden until the first guarded navigation finishes. This prevents the
+  // protected layout from flashing briefly before an anonymous user is redirected.
+  protected readonly showShell = signal(false);
   protected readonly sidebarOpen = signal(false);
   protected readonly auth = inject(AuthService);
   protected readonly errorMessages = inject(ErrorMessageService);
@@ -19,7 +21,7 @@ export class App {
   constructor(router: Router) {
     router.events.subscribe((event) => {
       if (event instanceof NavigationEnd) {
-        this.showShell.set(!event.urlAfterRedirects.startsWith('/login'));
+        this.showShell.set(!event.urlAfterRedirects.startsWith('/login') && this.auth.isAuthenticated());
         this.sidebarOpen.set(false);
       }
     });

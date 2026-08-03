@@ -5,14 +5,14 @@ import { adminGuard } from './admin.guard';
 import { AuthService } from './auth.service';
 
 describe('authentication guards', () => {
-  let router: { navigate: ReturnType<typeof vi.fn> };
+  let router: { navigate: ReturnType<typeof vi.fn>; createUrlTree: ReturnType<typeof vi.fn> };
   let auth: {
     isAuthenticated: ReturnType<typeof vi.fn>;
     hasRole: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
-    router = { navigate: vi.fn() };
+    router = { navigate: vi.fn(), createUrlTree: vi.fn(() => 'login-url-tree') };
     auth = { isAuthenticated: vi.fn(), hasRole: vi.fn() };
     TestBed.configureTestingModule({
       providers: [
@@ -27,8 +27,8 @@ describe('authentication guards', () => {
 
     const allowed = TestBed.runInInjectionContext(() => authGuard({} as any, {} as any));
 
-    expect(allowed).toBe(false);
-    expect(router.navigate).toHaveBeenCalledWith(['/login']);
+    expect(allowed).toBe('login-url-tree');
+    expect(router.createUrlTree).toHaveBeenCalledWith(['/login']);
   });
 
   it('allows signed-in users through the auth guard', () => {
