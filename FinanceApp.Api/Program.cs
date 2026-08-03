@@ -344,7 +344,7 @@ static async Task EnsureTenantMembershipSchemaAsync(AppIdentityDbContext context
 
 static async Task EnsureTenantScopedRegistrationsSchemaAsync(FinanceDbContext context)
 {
-    foreach (var table in new[] { "Categories", "Persons", "PaymentMethods" })
+    foreach (var table in new[] { "Categories", "Persons", "PaymentMethods", "Transactions" })
     {
         var sql = context.Database.IsNpgsql()
             ? $"ALTER TABLE \"{table}\" ADD COLUMN IF NOT EXISTS \"TenantId\" text NULL"
