@@ -5,12 +5,19 @@
       <div class="admin-count"><strong>{{ users.length }}</strong><span>usuários</span></div>
     </header>
     <div class="admin-group">
-      <div class="group-heading"><div><span class="group-icon">✉</span><div><h2>Novo convite</h2><p>O convidado define a própria senha pelo link recebido.</p></div></div></div>
+      <div class="group-heading"><div><span class="group-icon">✉</span><div><h2>Novo convite</h2><p>Gere um link temporário e envie-o ao convidado pelo canal que preferir.</p></div></div></div>
       <form (ngSubmit)="createInvite()">
         <div><label>Email do usuário</label><input type="email" [(ngModel)]="newInvite.email" name="inviteEmail" placeholder="pessoa@email.com" required /></div>
         <div><label>Grupo / família</label><input type="text" [(ngModel)]="newInvite.tenantName" name="tenantName" placeholder="Ex.: Família Silva" required /></div>
-        <button type="submit">Enviar convite <span>→</span></button>
+        <button type="submit">Gerar link <span>→</span></button>
       </form>
+      <div *ngIf="createdInviteUrl" class="invite-link-box">
+        <div><strong>Link pronto para compartilhar</strong><span>Ele expira em uma hora e só pode ser usado uma vez.</span></div>
+        <div class="invite-link-actions">
+          <input [value]="createdInviteUrl" readonly aria-label="Link do convite" />
+          <button type="button" (click)="copyInviteUrl(createdInviteUrl)">{{ copiedInviteUrl ? 'Copiado!' : 'Copiar link' }}</button>
+        </div>
+      </div>
     </div>
     <div class="admin-group table-group">
       <div class="table-heading"><div><h2>Convites enviados</h2><p>Os links expiram em uma hora.</p></div><span>{{ invites.length }}</span></div>
@@ -22,6 +29,7 @@
             <th>Tenant</th>
             <th>Expira</th>
             <th>Usado</th>
+            <th>Ação</th>
           </tr>
         </thead>
         <tbody>
@@ -31,6 +39,7 @@
             <td>{{ invite.tenantName }}</td>
             <td>{{ invite.expiresAt | date:'short' }}</td>
             <td>{{ invite.used ? 'Sim' : 'Não' }}</td>
+            <td><button *ngIf="!invite.used" type="button" class="copy-link-button" (click)="copyInviteUrl(inviteUrl(invite.token))">Copiar link</button></td>
           </tr>
         </tbody>
       </table>

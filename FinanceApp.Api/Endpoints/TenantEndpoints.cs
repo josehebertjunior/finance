@@ -3,7 +3,7 @@ using FinanceApp.Api.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Net;
+using Microsoft.Extensions.Options;
 using System.Security.Claims;
 
 namespace FinanceApp.Api.Endpoints;
@@ -15,7 +15,7 @@ public static class TenantEndpoints
         var group = app.MapGroup("/api/admin");
         group.RequireAuthorization("AdminOnly");
 
-        group.MapPost("/invites", async ([FromBody] CreateInviteDto dto, AppIdentityDbContext idDb, UserManager<ApplicationUser> userManager, IAppEmailSender emailSender, ClaimsPrincipal user) =>
+        group.MapPost("/invites", async ([FromBody] CreateInviteDto dto, AppIdentityDbContext idDb, UserManager<ApplicationUser> userManager, IOptions<AppSettings> appSettings, ClaimsPrincipal user) =>
         {
             if (string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.TenantName))
                 return Results.BadRequest(new { error = "Email and tenant name are required." });
@@ -28,25 +28,14 @@ public static class TenantEndpoints
             {
                 existingInvite.ExpiresAt = DateTime.UtcNow.AddHours(1);
                 await idDb.SaveChangesAsync();
-                try
-                {
-                    await emailSender.SendInviteAsync(existingInvite.Email, existingInvite.Token);
-                }
-                catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
-                {
-                    return Results.UnprocessableEntity(new
-                    {
-                        error = "O Resend está em modo de teste. Para enviar convites a outros e-mails, verifique um domínio no Resend."
-                    });
-                }
-                return Results.Ok(new { message = "Invite resent." });
+                return Results.Ok(CreateInviteResponse(existingInvite, existingInvite.Tenant?.Name, appSettings.Value.FrontendUrl));
             }
 
             var tenant = await idDb.Tenants!.FirstOrDefaultAsync(t => t.Name == dto.TenantName);
             if (tenant == null)
             {
                 tenant = new Tenant { Name = dto.TenantName, CreatedById = adminUser.Id };
-                idDb.Tenants.Add(tenant);
+                idDb.Tenants!.Add(tenant);
                 await idDb.SaveChangesAsync();
             }
 
@@ -61,18 +50,7 @@ public static class TenantEndpoints
             };
             idDb.InviteTokens!.Add(invite);
             await idDb.SaveChangesAsync();
-            try
-            {
-                await emailSender.SendInviteAsync(invite.Email, invite.Token);
-            }
-            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
-            {
-                return Results.UnprocessableEntity(new
-                {
-                    error = "O Resend está em modo de teste. Para enviar convites a outros e-mails, verifique um domínio no Resend."
-                });
-            }
-            return Results.Created($"/api/admin/invites/{invite.Id}", new { invite.Id, invite.Email, invite.ExpiresAt, invite.Token, tenant = tenant.Name });
+            return Results.Created($"/api/admin/invites/{invite.Id}", CreateInviteResponse(invite, tenant.Name, appSettings.Value.FrontendUrl));
         });
 
         group.MapGet("/invites", async (AppIdentityDbContext idDb) =>
@@ -143,6 +121,21 @@ public static class TenantEndpoints
             var result = await userManager.RemoveFromRoleAsync(user, role);
             return result.Succeeded ? Results.Ok() : Results.BadRequest(result.Errors);
         });
+    }
+
+    private static object CreateInviteResponse(InviteToken invite, string? tenantName, string frontendUrl)
+    {
+        var inviteUrl = $"{frontendUrl.TrimEnd('/')}/login?invite={Uri.EscapeDataString(invite.Token)}";
+        return new
+        {
+            invite.Id,
+            invite.Email,
+            invite.ExpiresAt,
+            invite.Token,
+            TenantName = tenantName,
+            InviteUrl = inviteUrl,
+            Message = "Link de convite gerado. Copie e envie ao convidado."
+        };
     }
 
     public record CreateInviteDto(string Email, string TenantName);
