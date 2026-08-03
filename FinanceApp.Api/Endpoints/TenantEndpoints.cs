@@ -3,6 +3,7 @@ using FinanceApp.Api.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
 using System.Security.Claims;
 
 namespace FinanceApp.Api.Endpoints;
@@ -27,7 +28,17 @@ public static class TenantEndpoints
             {
                 existingInvite.ExpiresAt = DateTime.UtcNow.AddHours(1);
                 await idDb.SaveChangesAsync();
-                await emailSender.SendInviteAsync(existingInvite.Email, existingInvite.Token);
+                try
+                {
+                    await emailSender.SendInviteAsync(existingInvite.Email, existingInvite.Token);
+                }
+                catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+                {
+                    return Results.UnprocessableEntity(new
+                    {
+                        error = "O Resend está em modo de teste. Para enviar convites a outros e-mails, verifique um domínio no Resend."
+                    });
+                }
                 return Results.Ok(new { message = "Invite resent." });
             }
 
@@ -50,7 +61,17 @@ public static class TenantEndpoints
             };
             idDb.InviteTokens!.Add(invite);
             await idDb.SaveChangesAsync();
-            await emailSender.SendInviteAsync(invite.Email, invite.Token);
+            try
+            {
+                await emailSender.SendInviteAsync(invite.Email, invite.Token);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+            {
+                return Results.UnprocessableEntity(new
+                {
+                    error = "O Resend está em modo de teste. Para enviar convites a outros e-mails, verifique um domínio no Resend."
+                });
+            }
             return Results.Created($"/api/admin/invites/{invite.Id}", new { invite.Id, invite.Email, invite.ExpiresAt, invite.Token, tenant = tenant.Name });
         });
 
