@@ -48,7 +48,7 @@ public static class AuthEndpoints
             return Results.Created($"/api/users/{user.Id}", new { user.Id, user.Email, user.TenantId });
         });
 
-        group.MapPost("/forgot-password", async (ForgotPasswordDto dto, UserManager<ApplicationUser> um, AppIdentityDbContext idDb, IAppEmailSender emailSender) =>
+        group.MapPost("/forgot-password", async (ForgotPasswordDto dto, UserManager<ApplicationUser> um, AppIdentityDbContext idDb, IAppEmailSender emailSender, IConfiguration configuration) =>
         {
             if (string.IsNullOrWhiteSpace(dto.Email))
             {
@@ -77,7 +77,8 @@ public static class AuthEndpoints
                 idDb.PasswordResetRequests!.Add(resetRequest);
                 await idDb.SaveChangesAsync();
 
-                var resetLink = $"http://localhost:4200/login?resetToken={Uri.EscapeDataString(requestToken)}";
+                var frontendUrl = configuration["App:FrontendUrl"]?.TrimEnd('/') ?? "http://localhost:4200";
+                var resetLink = $"{frontendUrl}/login?resetToken={Uri.EscapeDataString(requestToken)}";
                 await emailSender.SendPasswordResetAsync(user.Email!, code, resetLink);
             }
 

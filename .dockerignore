@@ -1,0 +1,10 @@
+.git
+.github
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/.angular
+FinanceApp.Api/*.sqlite*
+FinanceApp.Api/appsettings.Development.json
+FinanceApp.Api/build_diag.txt

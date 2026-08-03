@@ -65,6 +65,10 @@ ng serve
 ```
 Acesse em `http://localhost:4200`.
 
+## Publicação
+
+O projeto está preparado para Vercel (Angular), Render (API) e Neon (PostgreSQL). Consulte o guia completo em [docs/DEPLOY.md](docs/DEPLOY.md).
+
 ## Roadmap
 
 - [ ] Gráficos no dashboard consumindo o endpoint de resumo por categoria

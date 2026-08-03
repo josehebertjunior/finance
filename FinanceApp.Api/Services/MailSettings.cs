@@ -10,3 +10,15 @@ public class MailSettings
     public string FromName { get; set; } = "FinanceApp";
     public string FromEmail { get; set; } = "no-reply@financeapp.local";
 }
+
+public class ResendSettings
+{
+    public string ApiKey { get; set; } = string.Empty;
+    public string FromName { get; set; } = "Finanças Pessoais";
+    public string FromEmail { get; set; } = string.Empty;
+}
+
+public class AppSettings
+{
+    public string FrontendUrl { get; set; } = "http://localhost:4200";
+}

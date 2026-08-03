@@ -31,5 +31,6 @@ logs/
 
 # Local database (never commit runtime data)
 *.sqlite
+*.sqlite-*
 *.sqlite3
 *.db

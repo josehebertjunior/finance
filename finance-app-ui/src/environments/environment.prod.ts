@@ -1,5 +1,5 @@
 export const environment = {
   production: true,
-  // TODO: substituir pela URL da API publicada (ex: Azure App Service, Render, etc.)
+  // O build do Vercel substitui este valor pela variável API_URL.
   apiUrl: 'https://SEU-DOMINIO-DA-API/api'
 };

@@ -8,10 +8,12 @@ namespace FinanceApp.Api.Services;
 public class SmtpEmailSender : IAppEmailSender
 {
     private readonly MailSettings _settings;
+    private readonly AppSettings _app;
 
-    public SmtpEmailSender(IOptions<MailSettings> options)
+    public SmtpEmailSender(IOptions<MailSettings> options, IOptions<AppSettings> appOptions)
     {
         _settings = options.Value;
+        _app = appOptions.Value;
     }
 
     public async Task SendInviteAsync(string email, string token)
@@ -20,7 +22,7 @@ public class SmtpEmailSender : IAppEmailSender
         message.From.Add(new MailboxAddress(_settings.FromName, _settings.FromEmail));
         message.To.Add(MailboxAddress.Parse(email));
         message.Subject = "Convite para Finanças";
-        var inviteUrl = $"http://localhost:4200/login?invite={Uri.EscapeDataString(token)}";
+        var inviteUrl = $"{_app.FrontendUrl.TrimEnd('/')}/login?invite={Uri.EscapeDataString(token)}";
         message.Body = new TextPart("html")
         {
             Text = $"<p>Você foi convidado para usar o sistema de finanças.</p><p>Clique no link abaixo para finalizar o registro:</p><p><a href=\"{inviteUrl}\">{inviteUrl}</a></p><p>O convite expira em 1 hora.</p>"

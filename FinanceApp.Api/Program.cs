@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.HttpOverrides;
 using FinanceApp.Api.Models;
 using FinanceApp.Api.Endpoints;
 using FinanceApp.Api.Services;
@@ -21,27 +22,45 @@ builder.Host.UseSerilog((ctx, lc) => lc.ReadFrom.Configuration(ctx.Configuration
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Application data DB
-builder.Services.AddDbContext<FinanceDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("A conexão DefaultConnection não foi configurada.");
+var usePostgres = !connectionString.Contains("Data Source=", StringComparison.OrdinalIgnoreCase)
+    && !connectionString.EndsWith(".sqlite", StringComparison.OrdinalIgnoreCase);
 
-// Identity DB (use same connection for now)
+// SQLite é mantido no desenvolvimento. Em produção, use a connection string PostgreSQL do Neon.
+builder.Services.AddDbContext<FinanceDbContext>(options =>
+{
+    if (usePostgres) options.UseNpgsql(connectionString);
+    else options.UseSqlite(connectionString);
+});
+
 builder.Services.AddDbContext<AppIdentityDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    if (usePostgres) options.UseNpgsql(connectionString);
+    else options.UseSqlite(connectionString);
+});
 
 builder.Services.AddIdentity<ApplicationUser, Microsoft.AspNetCore.Identity.IdentityRole>()
     .AddEntityFrameworkStores<AppIdentityDbContext>()
     .AddDefaultTokenProviders();
 
 builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
-builder.Services.AddSingleton<IAppEmailSender, SmtpEmailSender>();
+builder.Services.Configure<ResendSettings>(builder.Configuration.GetSection("Resend"));
+builder.Services.Configure<AppSettings>(builder.Configuration.GetSection("App"));
+if (!string.IsNullOrWhiteSpace(builder.Configuration["Resend:ApiKey"]))
+    builder.Services.AddHttpClient<IAppEmailSender, ResendEmailSender>();
+else
+    builder.Services.AddSingleton<IAppEmailSender, SmtpEmailSender>();
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAngularDev",
+    var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+        ?.Where(origin => Uri.TryCreate(origin, UriKind.Absolute, out _))
+        .ToArray() ?? ["http://localhost:4200"];
+    options.AddPolicy("AppCors",
         policyBuilder =>
         {
-            policyBuilder.WithOrigins("http://localhost:4200")
+            policyBuilder.WithOrigins(allowedOrigins)
                    .AllowAnyHeader()
                    .AllowAnyMethod()
                    .AllowCredentials();
@@ -138,14 +157,14 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
-    db.Database.Migrate();
+    await EnsureSchemaAsync(db, "Transactions");
 }
 
 // Ensure Identity DB migrated and seed roles/admin
 using (var scope = app.Services.CreateScope())
 {
     var idDb = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
-    idDb.Database.Migrate();
+    await EnsureSchemaAsync(idDb, "AspNetUsers");
 
     var roleMgr = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     var userMgr = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
@@ -161,6 +180,8 @@ using (var scope = app.Services.CreateScope())
 
     var adminEmail = builder.Configuration["Admin:Email"] ?? "josehebertjr@gmail.com";
     var adminPass = builder.Configuration["Admin:Password"] ?? "Admin123!";
+    if (app.Environment.IsProduction() && (string.IsNullOrWhiteSpace(builder.Configuration["Admin:Email"]) || string.IsNullOrWhiteSpace(builder.Configuration["Admin:Password"])))
+        throw new InvalidOperationException("Defina Admin__Email e Admin__Password antes de iniciar a API em produção.");
     var admin = userMgr.FindByEmailAsync(adminEmail).Result;
     if (admin == null)
     {
@@ -201,8 +222,14 @@ app.Use(async (context, next) =>
     await next();
 });
 
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    KnownNetworks = { },
+    KnownProxies = { }
+});
 app.UseHttpsRedirection();
-app.UseCors("AllowAngularDev");
+app.UseCors("AppCors");
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -210,7 +237,36 @@ app.UseAuthorization();
 app.MapApiEndpoints();
 app.MapAuthEndpoints();
 app.MapTenantEndpoints();
+app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 
 app.Run();
+
+static async Task EnsureSchemaAsync(DbContext context, string markerTable)
+{
+    if (!context.Database.IsNpgsql())
+    {
+        await context.Database.MigrateAsync();
+        return;
+    }
+
+    var connection = context.Database.GetDbConnection();
+    await connection.OpenAsync();
+    try
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = @tableName)";
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "tableName";
+        parameter.Value = markerTable;
+        command.Parameters.Add(parameter);
+        var exists = (bool)(await command.ExecuteScalarAsync() ?? false);
+        if (!exists)
+            await context.Database.ExecuteSqlRawAsync(context.Database.GenerateCreateScript());
+    }
+    finally
+    {
+        await connection.CloseAsync();
+    }
+}
 
 public partial class Program { }
