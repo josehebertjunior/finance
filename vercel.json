@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "installCommand": "npm --prefix finance-app-ui ci",
+  "buildCommand": "npm --prefix finance-app-ui run build:vercel",
+  "outputDirectory": "finance-app-ui/dist/finance-app-ui/browser",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: finance-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./FinanceApp.Api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: Cors__AllowedOrigins__0
+        sync: false
+      - key: App__FrontendUrl
+        sync: false
+      - key: Jwt__Key
+        generateValue: true
+      - key: Jwt__Issuer
+        value: finance-api
+      - key: Jwt__Audience
+        value: finance-client
+      - key: Admin__Email
+        sync: false
+      - key: Admin__Password
+        sync: false
+      - key: Resend__ApiKey
+        sync: false
+      - key: Resend__FromName
+        value: Finanças Pessoais
+      - key: Resend__FromEmail
+        sync: false
