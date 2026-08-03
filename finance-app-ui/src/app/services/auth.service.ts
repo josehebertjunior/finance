@@ -3,6 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { catchError, of } from 'rxjs';
 import { ErrorMessageService } from './error-message.service';
+import { environment } from '../../environments/environment';
 
 interface LoginResult { accessToken: string; expiresIn: number }
 
@@ -14,6 +15,7 @@ interface JwtClaims {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private readonly apiUrl = environment.apiUrl;
   private readonly refreshLeadMs = 2 * 60 * 1000;
   private readonly idleLimitMs = 2 * 60 * 1000;
   private readonly sessionPromptMs = 15 * 1000;
@@ -144,7 +146,7 @@ export class AuthService {
 
   login(email: string, password: string) {
     this._error.set(null);
-    this.http.post<LoginResult>('/api/auth/login', { email, password }, { withCredentials: true }).pipe(
+    this.http.post<LoginResult>(`${this.apiUrl}/auth/login`, { email, password }, { withCredentials: true }).pipe(
       catchError((error) => {
         const message = error?.status === 401
           ? 'E-mail ou senha inválidos. Tente novamente.'
@@ -162,7 +164,7 @@ export class AuthService {
 
   register(email: string, password: string, displayName: string, inviteCode: string) {
     this._error.set(null);
-    this.http.post('/api/auth/register', { email, password, displayName, inviteCode }, { withCredentials: true }).pipe(
+    this.http.post(`${this.apiUrl}/auth/register`, { email, password, displayName, inviteCode }, { withCredentials: true }).pipe(
       catchError((error) => {
         const message = this.errorMessages.forRequest(error, 'Não foi possível criar sua conta. Verifique os dados e tente novamente.');
         this._error.set(message);
@@ -178,7 +180,7 @@ export class AuthService {
 
   forgotPassword(email: string) {
     this._error.set(null);
-    return this.http.post('/api/auth/forgot-password', { email }, { withCredentials: true }).pipe(
+    return this.http.post(`${this.apiUrl}/auth/forgot-password`, { email }, { withCredentials: true }).pipe(
       catchError((error) => {
         const message = this.errorMessages.forRequest(error, 'Não foi possível enviar as instruções. Tente novamente.');
         this._error.set(message);
@@ -189,7 +191,7 @@ export class AuthService {
 
   resetPassword(token: string, code: string, newPassword: string) {
     this._error.set(null);
-    return this.http.post('/api/auth/reset-password', { token, code, newPassword }, { withCredentials: true }).pipe(
+    return this.http.post(`${this.apiUrl}/auth/reset-password`, { token, code, newPassword }, { withCredentials: true }).pipe(
       catchError((error) => {
         const message = this.errorMessages.forRequest(error, 'Não foi possível redefinir a senha. Tente novamente.');
         this._error.set(message);
@@ -209,14 +211,14 @@ export class AuthService {
     localStorage.removeItem('accessToken');
     const csrf = this.getCsrfToken();
     const headers = csrf ? new HttpHeaders({ 'X-CSRF-Token': csrf }) : undefined;
-    this.http.post('/api/auth/logout', {}, { withCredentials: true, headers }).subscribe();
+    this.http.post(`${this.apiUrl}/auth/logout`, {}, { withCredentials: true, headers }).subscribe();
     this.router.navigateByUrl('/login');
   }
 
   refresh() {
     const csrf = this.getCsrfToken();
     const headers = csrf ? new HttpHeaders({ 'X-CSRF-Token': csrf }) : undefined;
-    return this.http.post<LoginResult>('/api/auth/refresh', {}, { withCredentials: true, headers });
+    return this.http.post<LoginResult>(`${this.apiUrl}/auth/refresh`, {}, { withCredentials: true, headers });
   }
 
   clearError() { this._error.set(null); }

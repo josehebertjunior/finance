@@ -3,6 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
+import { environment } from '../../environments/environment';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -38,7 +39,7 @@ describe('AuthService', () => {
 
     service.login('ana@example.com', 'Senha123');
 
-    const request = httpMock.expectOne('/api/auth/login');
+    const request = httpMock.expectOne(`${environment.apiUrl}/auth/login`);
     expect(request.request.method).toBe('POST');
     expect(request.request.withCredentials).toBe(true);
     request.flush({ accessToken: token, expiresIn: 900 });
@@ -57,7 +58,7 @@ describe('AuthService', () => {
     const token = `header.${payload}.signature`;
 
     service.login('admin@example.com', 'Senha123');
-    httpMock.expectOne('/api/auth/login').flush({ accessToken: token, expiresIn: 900 });
+    httpMock.expectOne(`${environment.apiUrl}/auth/login`).flush({ accessToken: token, expiresIn: 900 });
 
     expect(service.hasRole('Admin')).toBe(true);
   });
@@ -65,7 +66,7 @@ describe('AuthService', () => {
   it('shows a clear message when credentials are rejected', () => {
     service.login('ana@example.com', 'senha-incorreta');
 
-    const request = httpMock.expectOne('/api/auth/login');
+    const request = httpMock.expectOne(`${environment.apiUrl}/auth/login`);
     request.flush({}, { status: 401, statusText: 'Unauthorized' });
 
     expect(service.error()).toBe('E-mail ou senha inválidos. Tente novamente.');
@@ -95,7 +96,7 @@ describe('AuthService', () => {
 
     service.refresh().subscribe();
 
-    const request = httpMock.expectOne('/api/auth/refresh');
+    const request = httpMock.expectOne(`${environment.apiUrl}/auth/refresh`);
     expect(request.request.withCredentials).toBe(true);
     expect(request.request.headers.get('X-CSRF-Token')).toBe('csrf-value');
     request.flush({ accessToken: 'new-token', expiresIn: 900 });
@@ -108,7 +109,7 @@ describe('AuthService', () => {
 
     service.clear();
 
-    const request = httpMock.expectOne('/api/auth/logout');
+    const request = httpMock.expectOne(`${environment.apiUrl}/auth/logout`);
     expect(request.request.headers.get('X-CSRF-Token')).toBe('logout-csrf');
     request.flush({});
     expect(service.accessToken()).toBeNull();
