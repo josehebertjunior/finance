@@ -21,6 +21,11 @@ type CreditCardGroup = {
   transactions: any[];
 };
 
+type FixedExpenseGroup = {
+  total: number;
+  transactions: any[];
+};
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -110,7 +115,7 @@ export class DashboardComponent implements OnInit {
   }
 
   directTransactions(month: DashboardMonth) {
-    return month.transactions.filter(transaction => !this.isCreditExpense(transaction));
+    return month.transactions.filter(transaction => !this.isCreditExpense(transaction) && !this.isFixedDirectExpense(transaction));
   }
 
   creditCardGroups(month: DashboardMonth): CreditCardGroup[] {
@@ -124,6 +129,15 @@ export class DashboardComponent implements OnInit {
       groups.set(id, group);
     });
     return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  fixedExpenseGroup(month: DashboardMonth): FixedExpenseGroup | null {
+    const transactions = month.transactions.filter(transaction => this.isFixedDirectExpense(transaction));
+    if (!transactions.length) return null;
+    return {
+      transactions,
+      total: transactions.reduce((sum, transaction) => sum + Number(transaction.amount), 0)
+    };
   }
 
   private loadSavings() {
@@ -174,6 +188,10 @@ export class DashboardComponent implements OnInit {
 
   private isCreditExpense(transaction: any) {
     return transaction.type === 1 && !!transaction.paymentMethod?.isCreditCard;
+  }
+
+  private isFixedDirectExpense(transaction: any) {
+    return transaction.type === 1 && !!transaction.isFixed && !this.isCreditExpense(transaction);
   }
 
   private hasSeries(transaction: any) {

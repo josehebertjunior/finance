@@ -41,7 +41,7 @@ describe('TransactionFormComponent', () => {
     expect(component.paymentMethods).toEqual([{ id: 3, name: 'Cartão' }]);
   });
 
-  it('normalizes the reference month and returns to the dashboard after save', () => {
+  it('normalizes the reference month and keeps the form ready for the next entry after save', () => {
     const component = TestBed.createComponent(TransactionFormComponent).componentInstance;
     component.transaction = {
       description: 'Aluguel', amount: '850.50', type: 1, date: '2026-07-05',
@@ -56,6 +56,10 @@ describe('TransactionFormComponent', () => {
       referenceMonth: '2026-07-01',
       installmentTotal: 1
     }));
-    expect(router.navigate).toHaveBeenCalledWith(['/']);
+    expect(router.navigate).not.toHaveBeenCalled();
+    expect(component.transaction).toEqual(expect.objectContaining({
+      description: '', amount: null, type: 1, date: '2026-07-05', referenceMonth: '2026-07'
+    }));
+    expect(component.savedMessage).toContain('Lançamento salvo');
   });
 });

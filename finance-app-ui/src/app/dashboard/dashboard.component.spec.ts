@@ -47,4 +47,19 @@ describe('DashboardComponent', () => {
     expect(component.selectedPersons).toEqual([7]);
     expect(finance.getTransactions.mock.calls.length).toBeGreaterThan(initialCalls);
   });
+
+  it('groups fixed debit expenses separately from credit card invoices', () => {
+    const component = TestBed.createComponent(DashboardComponent).componentInstance;
+    const month = {
+      transactions: [
+        { id: 1, type: 1, amount: 120, isFixed: true, paymentMethod: { isCreditCard: false } },
+        { id: 2, type: 1, amount: 220, isFixed: true, paymentMethod: { isCreditCard: true } },
+        { id: 3, type: 1, amount: 80, isFixed: false, paymentMethod: { isCreditCard: false } }
+      ]
+    } as any;
+
+    expect(component.fixedExpenseGroup(month)).toEqual(expect.objectContaining({ total: 120 }));
+    expect(component.directTransactions(month).map(transaction => transaction.id)).toEqual([3]);
+    expect(component.creditCardGroups(month)[0].total).toBe(220);
+  });
 });

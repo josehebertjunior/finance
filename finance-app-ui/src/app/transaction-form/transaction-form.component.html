@@ -1,6 +1,8 @@
 <div class="glass-panel" style="max-width: 600px; margin: 0 auto; padding: 2rem;">
   <h2 style="margin-bottom: 1.5rem; text-align: center;">{{ editingId ? 'Editar lançamento' : 'Novo lançamento' }}</h2>
 
+  <p *ngIf="savedMessage" class="save-feedback" role="status">{{ savedMessage }}</p>
+
   <form (ngSubmit)="save()" #f="ngForm" style="display: flex; flex-direction: column; gap: 1.25rem;">
     
     <!-- Type selection -->
@@ -98,7 +100,7 @@
 
     <!-- Submit -->
     <button type="submit" class="primary" [disabled]="!f.valid" style="margin-top: 1rem; padding: 1rem; font-size: 1.1rem; font-weight: 600;">
-      {{ editingId ? 'Salvar alterações' : 'Salvar lançamento' }}
+      {{ editingId ? 'Salvar alterações' : 'Salvar e adicionar outro' }}
     </button>
   </form>
 </div>

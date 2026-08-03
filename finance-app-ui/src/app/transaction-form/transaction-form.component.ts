@@ -18,6 +18,7 @@ export class TransactionFormComponent implements OnInit {
   private cdr = inject(ChangeDetectorRef);
   editingId: number | null = null;
   applyToSeries = false;
+  savedMessage = '';
 
   isInstallment: boolean = false;
 
@@ -96,8 +97,34 @@ export class TransactionFormComponent implements OnInit {
       : this.financeService.createTransaction(transactionPayload);
 
     request.subscribe({
-      next: () => this.router.navigate(['/']),
+      next: () => {
+        if (this.editingId) {
+          this.router.navigate(['/']);
+          return;
+        }
+        this.prepareNextTransaction();
+      },
       error: (e) => console.error(e)
     });
+  }
+
+  private prepareNextTransaction() {
+    const { type, date, referenceMonth, paymentMethodId, personId } = this.transaction;
+    this.transaction = {
+      description: '',
+      amount: null,
+      type,
+      date,
+      referenceMonth,
+      categoryId: null,
+      personId,
+      paymentMethodId,
+      isFixed: false,
+      installmentCurrent: 1,
+      installmentTotal: 1
+    };
+    this.isInstallment = false;
+    this.savedMessage = 'Lançamento salvo. Preencha o próximo item da fatura.';
+    this.cdr.markForCheck();
   }
 }
