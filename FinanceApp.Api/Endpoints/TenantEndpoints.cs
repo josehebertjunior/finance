@@ -78,15 +78,20 @@ public static class TenantEndpoints
         group.MapGet("/users", async (AppIdentityDbContext idDb, UserManager<ApplicationUser> userManager) =>
         {
             var users = await idDb.Users.Include(u => u.Tenant).ToListAsync();
-            var userDtos = await Task.WhenAll(users.Select(async u => new
+            var userDtos = new List<object>();
+            foreach (var user in users)
             {
-                u.Id,
-                u.Email,
-                u.DisplayName,
-                u.TenantId,
-                TenantName = u.Tenant?.Name,
-                Roles = await userManager.GetRolesAsync(u)
-            }));
+                var roles = await userManager.GetRolesAsync(user);
+                userDtos.Add(new
+                {
+                    user.Id,
+                    user.Email,
+                    user.DisplayName,
+                    user.TenantId,
+                    TenantName = user.Tenant?.Name,
+                    Roles = roles
+                });
+            }
             return Results.Ok(userDtos);
         });
 

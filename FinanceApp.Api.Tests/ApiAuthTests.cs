@@ -122,6 +122,75 @@ public class ApiAuthTests
         afterLogoutResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task TenantMember_CanReadTransactionsCreatedByTheTenantOwner()
+    {
+        var memberEmail = $"member-{Guid.NewGuid()}@local";
+        var invitation = await CreateInviteWithOwnerAsync(memberEmail);
+        var client = _factory.CreateClient();
+
+        var registerResponse = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            email = memberEmail,
+            password = "Test123!",
+            displayName = "Member",
+            inviteCode = invitation.Token
+        });
+        registerResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var ownerLogin = await LoginAsync(client, invitation.OwnerEmail);
+        var createRequest = new HttpRequestMessage(HttpMethod.Post, "/api/transactions")
+        {
+            Content = JsonContent.Create(new
+            {
+                description = "Despesa compartilhada",
+                amount = 90m,
+                type = 1,
+                date = new DateTime(2026, 8, 1),
+                referenceMonth = new DateTime(2026, 8, 1),
+                installmentTotal = 1
+            })
+        };
+        createRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", ownerLogin.accessToken);
+        (await client.SendAsync(createRequest)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var memberLogin = await LoginAsync(client, memberEmail, "Test123!");
+        var transactionsRequest = new HttpRequestMessage(HttpMethod.Get, "/api/transactions?year=2026&month=8");
+        transactionsRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", memberLogin.accessToken);
+        var transactionsResponse = await client.SendAsync(transactionsRequest);
+        var transactions = await transactionsResponse.Content.ReadFromJsonAsync<Transaction[]>();
+
+        transactionsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        transactions.Should().Contain(transaction => transaction.Description == "Despesa compartilhada");
+    }
+
+    [Fact]
+    public async Task AdminUsers_ListsMultipleUsersWithoutConcurrentContextAccess()
+    {
+        var memberEmail = $"member-{Guid.NewGuid()}@local";
+        var invitation = await CreateInviteWithOwnerAsync(memberEmail, ownerIsAdmin: true);
+        var client = _factory.CreateClient();
+
+        var registerResponse = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            email = memberEmail,
+            password = "Test123!",
+            displayName = "Member",
+            inviteCode = invitation.Token
+        });
+        registerResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var ownerLogin = await LoginAsync(client, invitation.OwnerEmail);
+        var usersRequest = new HttpRequestMessage(HttpMethod.Get, "/api/admin/users");
+        usersRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", ownerLogin.accessToken);
+        var usersResponse = await client.SendAsync(usersRequest);
+
+        usersResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var users = await usersResponse.Content.ReadFromJsonAsync<ApplicationUser[]>();
+        users.Should().NotBeNull();
+        users!.Should().Contain(user => user.Email == memberEmail);
+    }
+
     private async Task<string> CreateInviteAsync(string email)
     {
         using var scope = _factory.Services.CreateScope();
@@ -146,6 +215,42 @@ public class ApiAuthTests
         db.InviteTokens!.Add(invite);
         await db.SaveChangesAsync();
         return invite.Token;
+    }
+
+    private async Task<(string Token, string OwnerEmail)> CreateInviteWithOwnerAsync(string email, bool ownerIsAdmin = false)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var db = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var ownerEmail = $"owner-{Guid.NewGuid()}@local";
+        var owner = new ApplicationUser { UserName = ownerEmail, Email = ownerEmail };
+        (await users.CreateAsync(owner, "Admin123!")).Succeeded.Should().BeTrue();
+        if (ownerIsAdmin) (await users.AddToRoleAsync(owner, "Admin")).Succeeded.Should().BeTrue();
+
+        var tenant = new Tenant { Name = $"Tenant-{Guid.NewGuid()}", CreatedById = owner.Id };
+        db.Tenants!.Add(tenant);
+        await db.SaveChangesAsync();
+
+        var invite = new InviteToken
+        {
+            Email = email,
+            Token = Guid.NewGuid().ToString("N"),
+            TenantId = tenant.Id,
+            CreatedById = owner.Id,
+            ExpiresAt = DateTime.UtcNow.AddHours(1)
+        };
+        db.InviteTokens!.Add(invite);
+        await db.SaveChangesAsync();
+        return (invite.Token, ownerEmail);
+    }
+
+    private static async Task<LoginResult> LoginAsync(HttpClient client, string email, string password = "Admin123!")
+    {
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { email, password });
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var login = await response.Content.ReadFromJsonAsync<LoginResult>();
+        login.Should().NotBeNull();
+        return login!;
     }
 
     private static async Task<HttpResponseMessage> SendSessionRequest(HttpClient client, string path, Session session)

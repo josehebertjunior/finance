@@ -121,9 +121,10 @@ public static class ApiEndpoints
                 query = query.Where(t => t.ReferenceMonth >= start && t.ReferenceMonth < end);
             }
 
-            if (!user.IsInRole("Admin") && !string.IsNullOrEmpty(sub))
+            if (!user.IsInRole("Admin"))
             {
-                query = query.Where(t => t.OwnerId == sub);
+                var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
+                query = query.Where(t => ownerIds.Contains(t.OwnerId));
             }
 
             return Results.Ok(await query.ToListAsync());
@@ -144,7 +145,11 @@ public static class ApiEndpoints
                 .FirstOrDefaultAsync(t => t.Id == id);
 
             if (transaction == null) return Results.NotFound();
-            if (!user.IsInRole("Admin") && transaction.OwnerId != (sub ?? string.Empty)) return Results.Forbid();
+            if (!user.IsInRole("Admin"))
+            {
+                var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
+                if (!ownerIds.Contains(transaction.OwnerId)) return Results.Forbid();
+            }
 
             return Results.Ok(transaction);
         });
@@ -242,7 +247,11 @@ public static class ApiEndpoints
 
             var t = await db.Transactions.FindAsync(id);
             if (t == null) return Results.NotFound();
-            if (!ctx.User.IsInRole("Admin") && t.OwnerId != (sub ?? string.Empty)) return Results.Forbid();
+            if (!ctx.User.IsInRole("Admin"))
+            {
+                var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
+                if (!ownerIds.Contains(t.OwnerId)) return Results.Forbid();
+            }
 
             var updateSeries = string.Equals(ctx.Request.Query["scope"].FirstOrDefault(), "series", StringComparison.OrdinalIgnoreCase)
                 && t.InstallmentGroupId.HasValue;
@@ -281,7 +290,11 @@ public static class ApiEndpoints
             var sub = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
 
             var baseQuery = db.Transactions.Where(t => t.ReferenceMonth >= start && t.ReferenceMonth < end && t.Type == TransactionType.Expense).Include(t => t.Category).AsQueryable();
-            if (!user.IsInRole("Admin") && !string.IsNullOrEmpty(sub)) baseQuery = baseQuery.Where(t => t.OwnerId == sub);
+            if (!user.IsInRole("Admin"))
+            {
+                var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
+                baseQuery = baseQuery.Where(t => ownerIds.Contains(t.OwnerId));
+            }
 
             var expenses = await baseQuery.ToListAsync();
 
@@ -304,7 +317,12 @@ public static class ApiEndpoints
             var sub = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
             var depositsQ = db.Transactions.Where(t => t.Type == TransactionType.SavingsDeposit).AsQueryable();
             var withdrawalsQ = db.Transactions.Where(t => t.Type == TransactionType.SavingsWithdrawal).AsQueryable();
-            if (!user.IsInRole("Admin") && !string.IsNullOrEmpty(sub)) { depositsQ = depositsQ.Where(t => t.OwnerId == sub); withdrawalsQ = withdrawalsQ.Where(t => t.OwnerId == sub); }
+            if (!user.IsInRole("Admin"))
+            {
+                var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
+                depositsQ = depositsQ.Where(t => ownerIds.Contains(t.OwnerId));
+                withdrawalsQ = withdrawalsQ.Where(t => ownerIds.Contains(t.OwnerId));
+            }
             var deposits = await depositsQ.Select(t => (double?)t.Amount).SumAsync() ?? 0.0;
             var withdrawals = await withdrawalsQ.Select(t => (double?)t.Amount).SumAsync() ?? 0.0;
             return Results.Ok(new { Balance = (decimal)deposits - (decimal)withdrawals });
@@ -316,7 +334,11 @@ public static class ApiEndpoints
             if (t == null) return Results.NotFound();
             var user = ctx.User;
             var sub = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
-            if (!user.IsInRole("Admin") && t.OwnerId != (sub ?? string.Empty)) return Results.Forbid();
+            if (!user.IsInRole("Admin"))
+            {
+                var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
+                if (!ownerIds.Contains(t.OwnerId)) return Results.Forbid();
+            }
             var deleteSeries = string.Equals(ctx.Request.Query["scope"].FirstOrDefault(), "series", StringComparison.OrdinalIgnoreCase)
                 && t.InstallmentGroupId.HasValue;
             if (deleteSeries)
@@ -354,5 +376,38 @@ public static class ApiEndpoints
             if (p != null) { db.PaymentMethods.Remove(p); await db.SaveChangesAsync(); }
             return Results.Ok();
         });
+    }
+
+    private static async Task<string[]> GetSharedOwnerIdsAsync(HttpContext context, string? userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId)) return [];
+
+        var identityDb = context.RequestServices.GetRequiredService<AppIdentityDbContext>();
+        var tenantId = await identityDb.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => user.TenantId)
+            .FirstOrDefaultAsync();
+
+        if (string.IsNullOrWhiteSpace(tenantId)) return [userId];
+
+        var tenantOwnerId = await identityDb.Tenants!
+            .AsNoTracking()
+            .Where(tenant => tenant.Id == tenantId)
+            .Select(tenant => tenant.CreatedById)
+            .FirstOrDefaultAsync();
+        var memberIds = await identityDb.Users
+            .AsNoTracking()
+            .Where(user => user.TenantId == tenantId)
+            .Select(user => user.Id)
+            .ToListAsync();
+
+        return memberIds
+            .Append(userId)
+            .Append(tenantOwnerId)
+            .OfType<string>()
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
     }
 }
