@@ -327,10 +327,11 @@ static async Task EnsureTenantMembershipSchemaAsync(AppIdentityDbContext context
     await context.Database.ExecuteSqlRawAsync("""
         UPDATE "AspNetUsers"
         SET "TenantId" = (
-            SELECT "TenantId"
-            FROM "TenantMemberships"
-            WHERE "UserId" = "AspNetUsers"."Id"
-            ORDER BY "JoinedAt", "TenantId"
+            SELECT membership."TenantId"
+            FROM "TenantMemberships" AS membership
+            INNER JOIN "Tenants" AS tenant ON tenant."Id" = membership."TenantId"
+            WHERE membership."UserId" = "AspNetUsers"."Id"
+            ORDER BY tenant."CreatedAt", membership."TenantId"
             LIMIT 1
         )
         WHERE "TenantId" IS NULL
