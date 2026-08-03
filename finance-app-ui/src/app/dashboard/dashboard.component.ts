@@ -115,7 +115,7 @@ export class DashboardComponent implements OnInit {
   }
 
   directTransactions(month: DashboardMonth) {
-    return month.transactions.filter(transaction => !this.isCreditExpense(transaction) && !this.isFixedDirectExpense(transaction));
+    return month.transactions.filter(transaction => !this.isCreditExpense(transaction) && !this.isRecurringDirectExpense(transaction));
   }
 
   creditCardGroups(month: DashboardMonth): CreditCardGroup[] {
@@ -132,7 +132,7 @@ export class DashboardComponent implements OnInit {
   }
 
   fixedExpenseGroup(month: DashboardMonth): FixedExpenseGroup | null {
-    const transactions = month.transactions.filter(transaction => this.isFixedDirectExpense(transaction));
+    const transactions = month.transactions.filter(transaction => this.isRecurringDirectExpense(transaction));
     if (!transactions.length) return null;
     return {
       transactions,
@@ -190,8 +190,10 @@ export class DashboardComponent implements OnInit {
     return transaction.type === 1 && !!transaction.paymentMethod?.isCreditCard;
   }
 
-  private isFixedDirectExpense(transaction: any) {
-    return transaction.type === 1 && !!transaction.isFixed && !this.isCreditExpense(transaction);
+  private isRecurringDirectExpense(transaction: any) {
+    return transaction.type === 1
+      && (transaction.isFixed || Number(transaction.installmentTotal) > 1)
+      && !this.isCreditExpense(transaction);
   }
 
   private hasSeries(transaction: any) {
