@@ -25,6 +25,7 @@ main { min-height: 100vh; color: #e6e8ff; }
 .sidebar-nav a:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
 .sidebar-nav a.active { background: linear-gradient(90deg, rgba(99, 102, 241, 0.24), rgba(99, 102, 241, 0.07)); color: #fff; box-shadow: inset 3px 0 #818cf8; }
 .sidebar-footer { margin-top: auto; padding: 1rem 0.75rem 0; border-top: 1px solid rgba(255, 255, 255, 0.07); }
+.group-switcher { display: grid; gap: .4rem; margin-bottom: 1rem; }.group-switcher > span { color: #64748b; font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }.group-switcher select { width: 100%; padding: .6rem .65rem; border: 1px solid rgba(129,140,248,.35); border-radius: 8px; background: #171e35; color: #e2e8f0; font: inherit; font-size: .8rem; }
 .signed-in { display: block; margin-bottom: 0.7rem; color: #64748b; font-size: 0.74rem; }
 .sidebar-footer button { display: flex; width: 100%; align-items: center; gap: 0.65rem; padding: 0.7rem 0; border: 0; background: transparent; color: #aab5ca; cursor: pointer; font: inherit; font-size: 0.9rem; font-weight: 600; text-align: left; }
 .sidebar-footer button:hover { color: #fca5a5; }

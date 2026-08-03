@@ -20,26 +20,34 @@ public static class ApiEndpoints
     {
         var api = app.MapGroup("/api");
 
-        api.MapGet("/categories", async (FinanceDbContext db) =>
-            await db.Categories.ToListAsync());
+        api.MapGet("/categories", async (FinanceDbContext db, HttpContext ctx) =>
+        {
+            var tenantId = await GetActiveTenantIdAsync(ctx);
+            return Results.Ok(await db.Categories.Where(category => category.TenantId == tenantId).ToListAsync());
+        });
 
-        api.MapPost("/categories", async (FinanceDbContext db, Category category) =>
+        api.MapPost("/categories", async (FinanceDbContext db, HttpContext ctx, Category category) =>
         {
             if (string.IsNullOrWhiteSpace(category.Name))
                 return Results.BadRequest(new { error = "Name is required." });
 
+            var tenantId = await GetActiveTenantIdAsync(ctx);
+            if (tenantId == null) return Results.BadRequest(new { error = "Select an active group first." });
+
+            category.TenantId = tenantId;
             db.Categories.Add(category);
             await db.SaveChangesAsync();
             return Results.Created($"/api/categories/{category.Id}", category);
         });
 
-        api.MapPut("/categories/{id}", async (FinanceDbContext db, int id, Category input) =>
+        api.MapPut("/categories/{id}", async (FinanceDbContext db, HttpContext ctx, int id, Category input) =>
         {
             if (string.IsNullOrWhiteSpace(input.Name))
                 return Results.BadRequest(new { error = "Name is required." });
 
             var category = await db.Categories.FindAsync(id);
             if (category == null) return Results.NotFound();
+            if (category.TenantId != await GetActiveTenantIdAsync(ctx)) return Results.Forbid();
 
             category.Name = input.Name;
             category.ColorHex = input.ColorHex;
@@ -47,26 +55,34 @@ public static class ApiEndpoints
             return Results.Ok(category);
         });
 
-        api.MapGet("/paymentmethods", async (FinanceDbContext db) =>
-            await db.PaymentMethods.ToListAsync());
+        api.MapGet("/paymentmethods", async (FinanceDbContext db, HttpContext ctx) =>
+        {
+            var tenantId = await GetActiveTenantIdAsync(ctx);
+            return Results.Ok(await db.PaymentMethods.Where(method => method.TenantId == tenantId).ToListAsync());
+        });
 
-        api.MapPost("/paymentmethods", async (FinanceDbContext db, PaymentMethod pm) =>
+        api.MapPost("/paymentmethods", async (FinanceDbContext db, HttpContext ctx, PaymentMethod pm) =>
         {
             if (string.IsNullOrWhiteSpace(pm.Name))
                 return Results.BadRequest(new { error = "Name is required." });
 
+            var tenantId = await GetActiveTenantIdAsync(ctx);
+            if (tenantId == null) return Results.BadRequest(new { error = "Select an active group first." });
+
+            pm.TenantId = tenantId;
             db.PaymentMethods.Add(pm);
             await db.SaveChangesAsync();
             return Results.Created($"/api/paymentmethods/{pm.Id}", pm);
         });
 
-        api.MapPut("/paymentmethods/{id}", async (FinanceDbContext db, int id, PaymentMethod input) =>
+        api.MapPut("/paymentmethods/{id}", async (FinanceDbContext db, HttpContext ctx, int id, PaymentMethod input) =>
         {
             if (string.IsNullOrWhiteSpace(input.Name))
                 return Results.BadRequest(new { error = "Name is required." });
 
             var pm = await db.PaymentMethods.FindAsync(id);
             if (pm == null) return Results.NotFound();
+            if (pm.TenantId != await GetActiveTenantIdAsync(ctx)) return Results.Forbid();
 
             pm.Name = input.Name;
             pm.IsCreditCard = input.IsCreditCard;
@@ -74,26 +90,34 @@ public static class ApiEndpoints
             return Results.Ok(pm);
         });
 
-        api.MapGet("/persons", async (FinanceDbContext db) =>
-            await db.Persons.ToListAsync());
+        api.MapGet("/persons", async (FinanceDbContext db, HttpContext ctx) =>
+        {
+            var tenantId = await GetActiveTenantIdAsync(ctx);
+            return Results.Ok(await db.Persons.Where(person => person.TenantId == tenantId).ToListAsync());
+        });
 
-        api.MapPost("/persons", async (FinanceDbContext db, Person person) =>
+        api.MapPost("/persons", async (FinanceDbContext db, HttpContext ctx, Person person) =>
         {
             if (string.IsNullOrWhiteSpace(person.Name))
                 return Results.BadRequest(new { error = "Name is required." });
 
+            var tenantId = await GetActiveTenantIdAsync(ctx);
+            if (tenantId == null) return Results.BadRequest(new { error = "Select an active group first." });
+
+            person.TenantId = tenantId;
             db.Persons.Add(person);
             await db.SaveChangesAsync();
             return Results.Created($"/api/persons/{person.Id}", person);
         });
 
-        api.MapPut("/persons/{id}", async (FinanceDbContext db, int id, Person input) =>
+        api.MapPut("/persons/{id}", async (FinanceDbContext db, HttpContext ctx, int id, Person input) =>
         {
             if (string.IsNullOrWhiteSpace(input.Name))
                 return Results.BadRequest(new { error = "Name is required." });
 
             var person = await db.Persons.FindAsync(id);
             if (person == null) return Results.NotFound();
+            if (person.TenantId != await GetActiveTenantIdAsync(ctx)) return Results.Forbid();
 
             person.Name = input.Name;
             await db.SaveChangesAsync();
@@ -121,11 +145,8 @@ public static class ApiEndpoints
                 query = query.Where(t => t.ReferenceMonth >= start && t.ReferenceMonth < end);
             }
 
-            if (!user.IsInRole("Admin"))
-            {
-                var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
-                query = query.Where(t => ownerIds.Contains(t.OwnerId));
-            }
+            var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
+            query = query.Where(t => ownerIds.Contains(t.OwnerId));
 
             return Results.Ok(await query.ToListAsync());
         });
@@ -145,11 +166,8 @@ public static class ApiEndpoints
                 .FirstOrDefaultAsync(t => t.Id == id);
 
             if (transaction == null) return Results.NotFound();
-            if (!user.IsInRole("Admin"))
-            {
-                var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
-                if (!ownerIds.Contains(transaction.OwnerId)) return Results.Forbid();
-            }
+            var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
+            if (!ownerIds.Contains(transaction.OwnerId)) return Results.Forbid();
 
             return Results.Ok(transaction);
         });
@@ -167,6 +185,10 @@ public static class ApiEndpoints
                 return Results.BadRequest(new { error = "Description is required." });
             if (t.Amount <= 0)
                 return Results.BadRequest(new { error = "Amount must be greater than zero." });
+
+            var activeTenantId = await GetActiveTenantIdAsync(ctx);
+            if (activeTenantId == null || !await ReferencesMatchTenantAsync(db, t, activeTenantId))
+                return Results.BadRequest(new { error = "The selected registrations must belong to the active group." });
 
             t.Date = AsUtc(t.Date);
             t.ReferenceMonth = AsUtc(t.ReferenceMonth);
@@ -242,16 +264,17 @@ public static class ApiEndpoints
             if (string.IsNullOrWhiteSpace(input.Description)) return Results.BadRequest(new { error = "Description is required." });
             if (input.Amount <= 0) return Results.BadRequest(new { error = "Amount must be greater than zero." });
 
+            var activeTenantId = await GetActiveTenantIdAsync(ctx);
+            if (activeTenantId == null || !await ReferencesMatchTenantAsync(db, input, activeTenantId))
+                return Results.BadRequest(new { error = "The selected registrations must belong to the active group." });
+
             input.Date = AsUtc(input.Date);
             input.ReferenceMonth = AsUtc(input.ReferenceMonth);
 
             var t = await db.Transactions.FindAsync(id);
             if (t == null) return Results.NotFound();
-            if (!ctx.User.IsInRole("Admin"))
-            {
-                var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
-                if (!ownerIds.Contains(t.OwnerId)) return Results.Forbid();
-            }
+            var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
+            if (!ownerIds.Contains(t.OwnerId)) return Results.Forbid();
 
             var updateSeries = string.Equals(ctx.Request.Query["scope"].FirstOrDefault(), "series", StringComparison.OrdinalIgnoreCase)
                 && t.InstallmentGroupId.HasValue;
@@ -290,11 +313,8 @@ public static class ApiEndpoints
             var sub = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
 
             var baseQuery = db.Transactions.Where(t => t.ReferenceMonth >= start && t.ReferenceMonth < end && t.Type == TransactionType.Expense).Include(t => t.Category).AsQueryable();
-            if (!user.IsInRole("Admin"))
-            {
-                var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
-                baseQuery = baseQuery.Where(t => ownerIds.Contains(t.OwnerId));
-            }
+            var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
+            baseQuery = baseQuery.Where(t => ownerIds.Contains(t.OwnerId));
 
             var expenses = await baseQuery.ToListAsync();
 
@@ -317,12 +337,9 @@ public static class ApiEndpoints
             var sub = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
             var depositsQ = db.Transactions.Where(t => t.Type == TransactionType.SavingsDeposit).AsQueryable();
             var withdrawalsQ = db.Transactions.Where(t => t.Type == TransactionType.SavingsWithdrawal).AsQueryable();
-            if (!user.IsInRole("Admin"))
-            {
-                var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
-                depositsQ = depositsQ.Where(t => ownerIds.Contains(t.OwnerId));
-                withdrawalsQ = withdrawalsQ.Where(t => ownerIds.Contains(t.OwnerId));
-            }
+            var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
+            depositsQ = depositsQ.Where(t => ownerIds.Contains(t.OwnerId));
+            withdrawalsQ = withdrawalsQ.Where(t => ownerIds.Contains(t.OwnerId));
             var deposits = await depositsQ.Select(t => (double?)t.Amount).SumAsync() ?? 0.0;
             var withdrawals = await withdrawalsQ.Select(t => (double?)t.Amount).SumAsync() ?? 0.0;
             return Results.Ok(new { Balance = (decimal)deposits - (decimal)withdrawals });
@@ -334,11 +351,8 @@ public static class ApiEndpoints
             if (t == null) return Results.NotFound();
             var user = ctx.User;
             var sub = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
-            if (!user.IsInRole("Admin"))
-            {
-                var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
-                if (!ownerIds.Contains(t.OwnerId)) return Results.Forbid();
-            }
+            var ownerIds = await GetSharedOwnerIdsAsync(ctx, sub);
+            if (!ownerIds.Contains(t.OwnerId)) return Results.Forbid();
             var deleteSeries = string.Equals(ctx.Request.Query["scope"].FirstOrDefault(), "series", StringComparison.OrdinalIgnoreCase)
                 && t.InstallmentGroupId.HasValue;
             if (deleteSeries)
@@ -356,23 +370,26 @@ public static class ApiEndpoints
             return Results.Ok();
         });
 
-        api.MapDelete("/categories/{id}", async (FinanceDbContext db, int id) =>
+        api.MapDelete("/categories/{id}", async (FinanceDbContext db, HttpContext ctx, int id) =>
         {
             var c = await db.Categories.FindAsync(id);
+            if (c != null && c.TenantId != await GetActiveTenantIdAsync(ctx)) return Results.Forbid();
             if (c != null) { db.Categories.Remove(c); await db.SaveChangesAsync(); }
             return Results.Ok();
         });
 
-        api.MapDelete("/persons/{id}", async (FinanceDbContext db, int id) =>
+        api.MapDelete("/persons/{id}", async (FinanceDbContext db, HttpContext ctx, int id) =>
         {
             var p = await db.Persons.FindAsync(id);
+            if (p != null && p.TenantId != await GetActiveTenantIdAsync(ctx)) return Results.Forbid();
             if (p != null) { db.Persons.Remove(p); await db.SaveChangesAsync(); }
             return Results.Ok();
         });
 
-        api.MapDelete("/paymentmethods/{id}", async (FinanceDbContext db, int id) =>
+        api.MapDelete("/paymentmethods/{id}", async (FinanceDbContext db, HttpContext ctx, int id) =>
         {
             var p = await db.PaymentMethods.FindAsync(id);
+            if (p != null && p.TenantId != await GetActiveTenantIdAsync(ctx)) return Results.Forbid();
             if (p != null) { db.PaymentMethods.Remove(p); await db.SaveChangesAsync(); }
             return Results.Ok();
         });
@@ -391,23 +408,40 @@ public static class ApiEndpoints
 
         if (string.IsNullOrWhiteSpace(tenantId)) return [userId];
 
-        var tenantOwnerId = await identityDb.Tenants!
+        var memberIds = await identityDb.TenantMemberships!
             .AsNoTracking()
-            .Where(tenant => tenant.Id == tenantId)
-            .Select(tenant => tenant.CreatedById)
-            .FirstOrDefaultAsync();
-        var memberIds = await identityDb.Users
-            .AsNoTracking()
-            .Where(user => user.TenantId == tenantId)
-            .Select(user => user.Id)
+            .Where(membership => membership.TenantId == tenantId)
+            .Select(membership => membership.UserId)
             .ToListAsync();
 
         return memberIds
             .Append(userId)
-            .Append(tenantOwnerId)
             .OfType<string>()
             .Where(id => !string.IsNullOrWhiteSpace(id))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
+    }
+
+    private static async Task<string?> GetActiveTenantIdAsync(HttpContext context)
+    {
+        var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? context.User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+        if (string.IsNullOrWhiteSpace(userId)) return null;
+
+        var identityDb = context.RequestServices.GetRequiredService<AppIdentityDbContext>();
+        return await identityDb.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => user.TenantId)
+            .FirstOrDefaultAsync();
+    }
+
+    private static async Task<bool> ReferencesMatchTenantAsync(FinanceDbContext db, Transaction transaction, string tenantId)
+    {
+        if (transaction.CategoryId.HasValue && !await db.Categories.AnyAsync(category => category.Id == transaction.CategoryId && category.TenantId == tenantId))
+            return false;
+        if (transaction.PersonId.HasValue && !await db.Persons.AnyAsync(person => person.Id == transaction.PersonId && person.TenantId == tenantId))
+            return false;
+        return !transaction.PaymentMethodId.HasValue || await db.PaymentMethods.AnyAsync(method => method.Id == transaction.PaymentMethodId && method.TenantId == tenantId);
     }
 }

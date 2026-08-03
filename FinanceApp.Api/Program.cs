@@ -26,20 +26,19 @@ builder.Services.AddSwaggerGen();
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("A conexão DefaultConnection não foi configurada.");
 connectionString = NormalizePostgresConnectionString(connectionString);
-var usePostgres = !connectionString.Contains("Data Source=", StringComparison.OrdinalIgnoreCase)
-    && !connectionString.EndsWith(".sqlite", StringComparison.OrdinalIgnoreCase);
+if (connectionString.Contains("Data Source=", StringComparison.OrdinalIgnoreCase)
+    || connectionString.EndsWith(".sqlite", StringComparison.OrdinalIgnoreCase))
+    throw new InvalidOperationException("SQLite is not supported. Use a PostgreSQL connection string.");
 
 // SQLite é mantido no desenvolvimento. Em produção, use a connection string PostgreSQL do Neon.
 builder.Services.AddDbContext<FinanceDbContext>(options =>
 {
-    if (usePostgres) options.UseNpgsql(connectionString);
-    else options.UseSqlite(connectionString);
+    options.UseNpgsql(connectionString);
 });
 
 builder.Services.AddDbContext<AppIdentityDbContext>(options =>
 {
-    if (usePostgres) options.UseNpgsql(connectionString);
-    else options.UseSqlite(connectionString);
+    options.UseNpgsql(connectionString);
 });
 
 builder.Services.AddIdentity<ApplicationUser, Microsoft.AspNetCore.Identity.IdentityRole>()
@@ -167,6 +166,7 @@ using (var scope = app.Services.CreateScope())
 {
     var idDb = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
     await EnsureSchemaAsync(idDb, "AspNetUsers");
+    await EnsureTenantMembershipSchemaAsync(idDb);
 
     var roleMgr = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     var userMgr = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
@@ -198,6 +198,12 @@ using (var scope = app.Services.CreateScope())
             userMgr.AddToRoleAsync(admin, "Admin").Wait();
         }
     }
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    var financeDb = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+    await EnsureTenantScopedRegistrationsSchemaAsync(financeDb);
 }
 
 // Configure the HTTP request pipeline.
@@ -268,6 +274,94 @@ static async Task EnsureSchemaAsync(DbContext context, string markerTable)
     finally
     {
         await connection.CloseAsync();
+    }
+}
+
+static async Task EnsureTenantMembershipSchemaAsync(AppIdentityDbContext context)
+{
+    var membershipTable = context.Database.IsNpgsql()
+        ? """
+          CREATE TABLE IF NOT EXISTS "TenantMemberships" (
+              "UserId" text NOT NULL,
+              "TenantId" text NOT NULL,
+              "JoinedAt" timestamp with time zone NOT NULL,
+              CONSTRAINT "PK_TenantMemberships" PRIMARY KEY ("UserId", "TenantId"),
+              CONSTRAINT "FK_TenantMemberships_AspNetUsers_UserId" FOREIGN KEY ("UserId") REFERENCES "AspNetUsers" ("Id") ON DELETE CASCADE,
+              CONSTRAINT "FK_TenantMemberships_Tenants_TenantId" FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE
+          )
+          """
+        : """
+          CREATE TABLE IF NOT EXISTS "TenantMemberships" (
+              "UserId" TEXT NOT NULL,
+              "TenantId" TEXT NOT NULL,
+              "JoinedAt" TEXT NOT NULL,
+              CONSTRAINT "PK_TenantMemberships" PRIMARY KEY ("UserId", "TenantId"),
+              CONSTRAINT "FK_TenantMemberships_AspNetUsers_UserId" FOREIGN KEY ("UserId") REFERENCES "AspNetUsers" ("Id") ON DELETE CASCADE,
+              CONSTRAINT "FK_TenantMemberships_Tenants_TenantId" FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE
+          )
+          """;
+
+    await context.Database.ExecuteSqlRawAsync(membershipTable);
+    var insertExistingMemberships = context.Database.IsNpgsql()
+        ? """
+          INSERT INTO "TenantMemberships" ("UserId", "TenantId", "JoinedAt")
+          SELECT "Id", "TenantId", CURRENT_TIMESTAMP FROM "AspNetUsers" WHERE "TenantId" IS NOT NULL
+          ON CONFLICT ("UserId", "TenantId") DO NOTHING;
+          """
+        : """
+          INSERT OR IGNORE INTO "TenantMemberships" ("UserId", "TenantId", "JoinedAt")
+          SELECT "Id", "TenantId", CURRENT_TIMESTAMP FROM "AspNetUsers" WHERE "TenantId" IS NOT NULL;
+          """;
+    var insertCreatorMemberships = context.Database.IsNpgsql()
+        ? """
+          INSERT INTO "TenantMemberships" ("UserId", "TenantId", "JoinedAt")
+          SELECT "CreatedById", "Id", CURRENT_TIMESTAMP FROM "Tenants"
+          ON CONFLICT ("UserId", "TenantId") DO NOTHING;
+          """
+        : """
+          INSERT OR IGNORE INTO "TenantMemberships" ("UserId", "TenantId", "JoinedAt")
+          SELECT "CreatedById", "Id", CURRENT_TIMESTAMP FROM "Tenants";
+          """;
+    await context.Database.ExecuteSqlRawAsync(insertExistingMemberships);
+    await context.Database.ExecuteSqlRawAsync(insertCreatorMemberships);
+    await context.Database.ExecuteSqlRawAsync("""
+        UPDATE "AspNetUsers"
+        SET "TenantId" = (
+            SELECT "TenantId"
+            FROM "TenantMemberships"
+            WHERE "UserId" = "AspNetUsers"."Id"
+            ORDER BY "JoinedAt", "TenantId"
+            LIMIT 1
+        )
+        WHERE "TenantId" IS NULL
+          AND EXISTS (
+            SELECT 1 FROM "TenantMemberships"
+            WHERE "UserId" = "AspNetUsers"."Id"
+          );
+        """);
+}
+
+static async Task EnsureTenantScopedRegistrationsSchemaAsync(FinanceDbContext context)
+{
+    foreach (var table in new[] { "Categories", "Persons", "PaymentMethods" })
+    {
+        var sql = context.Database.IsNpgsql()
+            ? $"ALTER TABLE \"{table}\" ADD COLUMN IF NOT EXISTS \"TenantId\" text NULL"
+            : $"ALTER TABLE \"{table}\" ADD COLUMN \"TenantId\" TEXT NULL";
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync(sql);
+        }
+        catch (Exception) when (!context.Database.IsNpgsql())
+        {
+            // SQLite reports an error when the column already exists.
+        }
+
+        await context.Database.ExecuteSqlRawAsync($"""
+            UPDATE "{table}"
+            SET "TenantId" = (SELECT "Id" FROM "Tenants" ORDER BY "CreatedAt", "Id" LIMIT 1)
+            WHERE "TenantId" IS NULL;
+            """);
     }
 }
 

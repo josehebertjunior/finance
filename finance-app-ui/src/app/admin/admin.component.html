@@ -96,6 +96,17 @@
         </select></div>
         <button type="submit">Salvar função</button>
       </form>
+      <form (ngSubmit)="assignTenant()">
+        <div><label>Selecionar usuário</label><select [(ngModel)]="tenantAssignment.userId" name="tenantUserId" required>
+          <option value="">Escolha usuário</option>
+          <option *ngFor="let user of users" [value]="user.id">{{ user.email }}</option>
+        </select></div>
+        <div><label>Grupo ativo</label><select [(ngModel)]="tenantAssignment.tenantId" name="tenantId" required>
+          <option value="">Escolha grupo</option>
+          <option *ngFor="let tenant of tenants" [value]="tenant.id">{{ tenant.name }}</option>
+        </select></div>
+        <button type="submit">Vincular / trocar grupo</button>
+      </form>
     </div>
   </div>
 </section>

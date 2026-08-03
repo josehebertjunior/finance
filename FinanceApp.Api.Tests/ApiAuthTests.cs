@@ -165,6 +165,46 @@ public class ApiAuthTests
     }
 
     [Fact]
+    public async Task TenantMember_CannotReadTransactionsFromAnotherTenant()
+    {
+        var firstMemberEmail = $"member-a-{Guid.NewGuid()}@local";
+        var firstInvitation = await CreateInviteWithOwnerAsync(firstMemberEmail);
+        var secondMemberEmail = $"member-b-{Guid.NewGuid()}@local";
+        var secondInvitation = await CreateInviteWithOwnerAsync(secondMemberEmail);
+        var client = _factory.CreateClient();
+
+        var firstRegistration = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            email = firstMemberEmail, password = "Test123!", displayName = "Member", inviteCode = firstInvitation.Token
+        });
+        firstRegistration.StatusCode.Should().Be(HttpStatusCode.Created);
+        var secondRegistration = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            email = secondMemberEmail, password = "Test123!", displayName = "Member", inviteCode = secondInvitation.Token
+        });
+        secondRegistration.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var firstOwnerLogin = await LoginAsync(client, firstInvitation.OwnerEmail);
+        var createRequest = new HttpRequestMessage(HttpMethod.Post, "/api/transactions")
+        {
+            Content = JsonContent.Create(new
+            {
+                description = "Somente do primeiro grupo", amount = 90m, type = 1,
+                date = new DateTime(2026, 8, 1), referenceMonth = new DateTime(2026, 8, 1), installmentTotal = 1
+            })
+        };
+        createRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", firstOwnerLogin.accessToken);
+        (await client.SendAsync(createRequest)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var secondMemberLogin = await LoginAsync(client, secondMemberEmail, "Test123!");
+        var transactionsRequest = new HttpRequestMessage(HttpMethod.Get, "/api/transactions?year=2026&month=8");
+        transactionsRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", secondMemberLogin.accessToken);
+        var transactions = await (await client.SendAsync(transactionsRequest)).Content.ReadFromJsonAsync<Transaction[]>();
+
+        transactions.Should().NotContain(transaction => transaction.Description == "Somente do primeiro grupo");
+    }
+
+    [Fact]
     public async Task AdminUsers_ListsMultipleUsersWithoutConcurrentContextAccess()
     {
         var memberEmail = $"member-{Guid.NewGuid()}@local";
@@ -230,6 +270,9 @@ public class ApiAuthTests
         var tenant = new Tenant { Name = $"Tenant-{Guid.NewGuid()}", CreatedById = owner.Id };
         db.Tenants!.Add(tenant);
         await db.SaveChangesAsync();
+        owner.TenantId = tenant.Id;
+        (await users.UpdateAsync(owner)).Succeeded.Should().BeTrue();
+        db.TenantMemberships!.Add(new TenantMembership { UserId = owner.Id, TenantId = tenant.Id });
 
         var invite = new InviteToken
         {

@@ -1,9 +1,12 @@
 using System;
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using FinanceApp.Api.Models;
 using FluentAssertions;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace FinanceApp.Api.Tests;
@@ -24,6 +27,7 @@ public class ApiTests
     public async Task Categories_CanBeCreatedUpdatedAndListed()
     {
         var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", await CreateAccessTokenAsync(client));
         var category = new Category { Name = "Transporte", ColorHex = "#123456" };
 
         var createResponse = await client.PostAsJsonAsync("/api/categories", category);
@@ -71,4 +75,28 @@ public class ApiTests
         getResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         postResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
+
+    private async Task<string> CreateAccessTokenAsync(HttpClient client)
+    {
+        var email = $"categories-{Guid.NewGuid()}@local";
+        using var scope = _factory.Services.CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var db = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var user = new ApplicationUser { UserName = email, Email = email };
+        (await users.CreateAsync(user, "Test123!")).Succeeded.Should().BeTrue();
+        var tenant = new Tenant { Name = $"Tenant-{Guid.NewGuid()}", CreatedById = user.Id };
+        db.Tenants!.Add(tenant);
+        await db.SaveChangesAsync();
+        user.TenantId = tenant.Id;
+        (await users.UpdateAsync(user)).Succeeded.Should().BeTrue();
+        db.TenantMemberships!.Add(new TenantMembership { UserId = user.Id, TenantId = tenant.Id });
+        await db.SaveChangesAsync();
+
+        var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Test123!" });
+        login.StatusCode.Should().Be(HttpStatusCode.OK);
+        var session = await login.Content.ReadFromJsonAsync<LoginResult>();
+        return session!.accessToken;
+    }
+
+    private record LoginResult(string accessToken);
 }

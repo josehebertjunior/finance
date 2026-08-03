@@ -1,12 +1,13 @@
 import { Component, signal, inject } from '@angular/core';
 import { Router, RouterOutlet, RouterModule, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AuthService } from './services/auth.service';
 import { ErrorMessageService } from './services/error-message.service';
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, RouterOutlet, RouterModule],
+  imports: [CommonModule, FormsModule, RouterOutlet, RouterModule],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
@@ -19,7 +20,8 @@ export class App {
   constructor(router: Router) {
     router.events.subscribe((event) => {
       if (event instanceof NavigationEnd) {
-        this.showShell.set(!event.urlAfterRedirects.startsWith('/login'));
+        this.showShell.set(!event.urlAfterRedirects.startsWith('/login') && this.auth.isAuthenticated());
+        if (this.showShell()) this.auth.loadGroups();
         this.sidebarOpen.set(false);
       }
     });

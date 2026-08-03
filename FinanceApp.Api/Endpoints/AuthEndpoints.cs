@@ -40,6 +40,8 @@ public static class AuthEndpoints
             var result = await um.CreateAsync(user, dto.Password);
             if (!result.Succeeded) return Results.BadRequest(result.Errors);
 
+            idDb.TenantMemberships!.Add(new TenantMembership { UserId = user.Id, TenantId = invite.TenantId });
+
             invite.Used = true;
             invite.UsedAt = DateTime.UtcNow;
             invite.UsedById = user.Id;
@@ -47,6 +49,34 @@ public static class AuthEndpoints
 
             return Results.Created($"/api/users/{user.Id}", new { user.Id, user.Email, user.TenantId });
         });
+
+        group.MapGet("/groups", async (ClaimsPrincipal principal, UserManager<ApplicationUser> um, AppIdentityDbContext idDb) =>
+        {
+            var user = await um.GetUserAsync(principal);
+            if (user == null) return Results.Unauthorized();
+
+            var groups = await idDb.TenantMemberships!
+                .Where(membership => membership.UserId == user.Id)
+                .Include(membership => membership.Tenant)
+                .OrderBy(membership => membership.Tenant!.Name)
+                .Select(membership => new { membership.TenantId, Name = membership.Tenant!.Name })
+                .ToListAsync();
+
+            return Results.Ok(new { ActiveTenantId = user.TenantId, Groups = groups });
+        }).RequireAuthorization();
+
+        group.MapPost("/active-group", async ([FromBody] ActiveGroupDto dto, ClaimsPrincipal principal, UserManager<ApplicationUser> um, AppIdentityDbContext idDb) =>
+        {
+            var user = await um.GetUserAsync(principal);
+            if (user == null) return Results.Unauthorized();
+            var isMember = await idDb.TenantMemberships!
+                .AnyAsync(membership => membership.UserId == user.Id && membership.TenantId == dto.TenantId);
+            if (!isMember) return Results.Forbid();
+
+            user.TenantId = dto.TenantId;
+            var result = await um.UpdateAsync(user);
+            return result.Succeeded ? Results.Ok() : Results.BadRequest(result.Errors);
+        }).RequireAuthorization();
 
         group.MapPost("/forgot-password", async (ForgotPasswordDto dto, UserManager<ApplicationUser> um, AppIdentityDbContext idDb, IAppEmailSender emailSender, IConfiguration configuration) =>
         {
@@ -252,6 +282,7 @@ public static class AuthEndpoints
     }
 
     public record RegisterDto(string Email, string Password, string? DisplayName, string InviteCode);
+    public record ActiveGroupDto(string TenantId);
     public record LoginDto(string Email, string Password);
     public record ForgotPasswordDto(string Email);
     public record ResetPasswordDto(string Token, string Code, string NewPassword);
