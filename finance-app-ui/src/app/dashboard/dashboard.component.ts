@@ -95,6 +95,13 @@ export class DashboardComponent implements OnInit {
   toggleGroup(key: string) { if (this.expandedGroups.has(key)) this.expandedGroups.delete(key); else this.expandedGroups.add(key); }
   fixedGroupKey(month: DashboardMonth) { return `${month.id}:fixed`; }
   creditGroupKey(month: DashboardMonth, group: CreditCardGroup) { return `${month.id}:credit:${group.id}`; }
+  creditCardTone(name: string) {
+    const normalized = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (normalized.includes('itau')) return 'card-itau';
+    if (normalized.includes('nubank')) return 'card-nubank';
+    if (normalized.includes('hipercard')) return 'card-hipercard';
+    return 'card-default';
+  }
 
   requestDeletion(transaction: any) {
     if (this.hasSeries(transaction)) {
