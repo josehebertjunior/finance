@@ -3,6 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { catchError, of } from 'rxjs';
 import { ErrorMessageService } from './error-message.service';
+import { environment } from '../../environments/environment';
 
 interface LoginResult { accessToken: string; expiresIn: number }
 interface GroupAccess { activeTenantId: string | null; groups: { tenantId: string; name: string }[] }
@@ -15,6 +16,7 @@ interface JwtClaims {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private readonly apiUrl = environment.apiUrl;
   private readonly refreshLeadMs = 2 * 60 * 1000;
   private readonly idleLimitMs = 2 * 60 * 1000;
   private readonly sessionPromptMs = 15 * 1000;
