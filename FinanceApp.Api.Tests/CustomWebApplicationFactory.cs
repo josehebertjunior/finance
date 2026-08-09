@@ -24,7 +24,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         builder.ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Database=tests;Username=test;Password=test"
+            ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Database=tests;Username=test;Password=test",
+            ["WhatsApp:WebhookVerifyToken"] = "test-verify-token",
+            ["WhatsApp:AppSecret"] = "test-app-secret"
         }));
 
         builder.ConfigureServices(services =>

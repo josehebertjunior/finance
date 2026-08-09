@@ -10,4 +10,16 @@ public class FinanceDbContext : DbContext
     public DbSet<PaymentMethod> PaymentMethods { get; set; }
     public DbSet<Category> Categories { get; set; }
     public DbSet<Transaction> Transactions { get; set; }
+    public DbSet<WhatsAppInboxItem> WhatsAppInboxItems { get; set; }
+    public DbSet<WhatsAppSender> WhatsAppSenders { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<WhatsAppInboxItem>()
+            .HasIndex(item => item.ProviderMessageId)
+            .IsUnique();
+        modelBuilder.Entity<WhatsAppSender>()
+            .HasIndex(sender => sender.PhoneNumber)
+            .IsUnique();
+    }
 }

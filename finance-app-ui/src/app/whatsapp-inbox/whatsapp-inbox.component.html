@@ -1,0 +1,35 @@
+<section class="inbox-shell">
+  <header class="inbox-header">
+    <div><p>WHATSAPP</p><h1>Lançamentos recebidos</h1><span>Revise cada mensagem antes de transformá-la em um lançamento.</span></div>
+    <button type="button" class="refresh" (click)="loadInbox()">Atualizar</button>
+  </header>
+
+  <section class="inbox-panel">
+    <div class="panel-heading"><div><h2>Para confirmar</h2><p>Mensagens válidas recebidas pelos números autorizados neste grupo.</p></div><span>{{ items.length }}</span></div>
+    <div *ngIf="loading" class="empty">Carregando mensagens…</div>
+    <div *ngIf="!loading && !items.length" class="empty">Nenhum lançamento aguardando confirmação.</div>
+    <article *ngFor="let item of items" class="message-card">
+      <div class="message-icon">↙</div>
+      <div class="message-content">
+        <div class="message-title"><strong>{{ item.suggestedDescription || 'Sem descrição' }}</strong><time>{{ item.receivedAt | date:'dd/MM HH:mm' }}</time></div>
+        <p>{{ item.body }}</p>
+        <div class="tags"><span>{{ item.suggestedType === 0 ? 'Entrada' : 'Saída' }}</span><span *ngIf="item.suggestedIsFixed">Fixa</span><span *ngIf="item.suggestedInstallmentTotal">{{ item.suggestedInstallmentCurrent || 1 }}/{{ item.suggestedInstallmentTotal }}</span></div>
+      </div>
+      <div class="message-actions"><strong [class.missing]="item.suggestedAmount == null">{{ formatCurrency(item.suggestedAmount) }}</strong><div><button type="button" class="confirm" [disabled]="item.suggestedAmount == null || !item.suggestedDescription" (click)="confirm(item)">Confirmar</button><button type="button" class="ignore" (click)="ignore(item)">Ignorar</button></div></div>
+    </article>
+  </section>
+
+  <section *ngIf="auth.hasRole('Admin')" class="inbox-panel configuration">
+    <div class="panel-heading"><div><h2>Configuração do canal</h2><p>Deixe esta área pronta antes de cadastrar o número na Meta.</p></div></div>
+    <div class="status-grid"><span [class.ready]="status.webhookConfigured">Webhook: {{ status.webhookConfigured ? 'configurado' : 'aguardando token' }}</span><span [class.ready]="status.appSecretConfigured">Assinatura: {{ status.appSecretConfigured ? 'configurada' : 'aguardando segredo' }}</span></div>
+    <p class="setup-note">Quando o número estiver disponível, configure no Render as variáveis <code>WhatsApp__WebhookVerifyToken</code> e <code>WhatsApp__AppSecret</code>, depois informe à Meta a URL do webhook.</p>
+    <form class="sender-form" (ngSubmit)="addSender()">
+      <input name="phoneNumber" [(ngModel)]="newSender.phoneNumber" placeholder="Número com DDI e DDD, ex.: 5511999999999" required />
+      <input name="displayName" [(ngModel)]="newSender.displayName" placeholder="Nome para identificação" />
+      <select name="ownerId" [(ngModel)]="newSender.ownerId" required><option value="">Usuário responsável</option><option *ngFor="let user of users" [value]="user.id">{{ user.displayName || user.email }}</option></select>
+      <select name="personId" [(ngModel)]="newSender.personId"><option [ngValue]="null">Sem pessoa vinculada</option><option *ngFor="let person of persons" [ngValue]="person.id">{{ person.name }}</option></select>
+      <button type="submit" class="confirm">Autorizar número</button>
+    </form>
+    <div class="sender-list" *ngIf="senders.length"><div *ngFor="let sender of senders"><span><strong>{{ sender.displayName || sender.phoneNumber }}</strong><small>{{ sender.phoneNumber }}</small></span><button type="button" class="ignore" (click)="deleteSender(sender.id)">Remover</button></div></div>
+  </section>
+</section>

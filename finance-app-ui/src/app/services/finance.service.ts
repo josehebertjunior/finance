@@ -78,4 +78,28 @@ export class FinanceService {
   deletePaymentMethod(id: number): Observable<any> {
     return this.http.delete(`${this.apiUrl}/paymentmethods/${id}`).pipe(catchError(this.handleError));
   }
+
+  getWhatsAppInbox(status = 'Pending'): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/whatsapp/inbox?status=${encodeURIComponent(status)}`, this.getAuthHeaders()).pipe(catchError(this.handleError));
+  }
+
+  confirmWhatsAppInbox(id: number, changes: any = {}): Observable<any> {
+    return this.http.post(`${this.apiUrl}/whatsapp/inbox/${id}/confirm`, changes, this.getAuthHeaders()).pipe(catchError(this.handleError));
+  }
+
+  ignoreWhatsAppInbox(id: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/whatsapp/inbox/${id}/ignore`, {}, this.getAuthHeaders()).pipe(catchError(this.handleError));
+  }
+
+  previewPdfStatement(file: File, paymentMethodId: number, referenceMonth: string): Observable<any> {
+    const form = new FormData();
+    form.append('statement', file);
+    form.append('paymentMethodId', String(paymentMethodId));
+    form.append('referenceMonth', referenceMonth);
+    return this.http.post(`${this.apiUrl}/imports/pdf/preview`, form, this.getAuthHeaders()).pipe(catchError(this.handleError));
+  }
+
+  confirmPdfImport(items: any[]): Observable<any> {
+    return this.http.post(`${this.apiUrl}/imports/pdf/confirm`, { items }, this.getAuthHeaders()).pipe(catchError(this.handleError));
+  }
 }

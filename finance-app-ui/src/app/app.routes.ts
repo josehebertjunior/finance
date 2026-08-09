@@ -9,6 +9,8 @@ export const routes: Routes = [
   { path: 'new', component: TransactionFormComponent, canActivate: [authGuard] },
   { path: 'edit/:id', component: TransactionFormComponent, canActivate: [authGuard] },
   { path: 'settings', loadComponent: () => import('./settings/settings.component').then(m => m.SettingsComponent), canActivate: [authGuard] },
+  { path: 'whatsapp', loadComponent: () => import('./whatsapp-inbox/whatsapp-inbox.component').then(m => m.WhatsAppInboxComponent), canActivate: [authGuard] },
+  { path: 'import', loadComponent: () => import('./pdf-import/pdf-import.component').then(m => m.PdfImportComponent), canActivate: [authGuard] },
   { path: 'admin', loadComponent: () => import('./admin/admin.component').then(m => m.AdminComponent), canActivate: [authGuard, adminGuard] },
   { path: 'login', loadComponent: () => import('./auth/auth.component').then(m => m.AuthComponent) }
 ];
