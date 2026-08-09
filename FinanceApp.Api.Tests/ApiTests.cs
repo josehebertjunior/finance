@@ -2,6 +2,8 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using FinanceApp.Api.Models;
 using FluentAssertions;
@@ -76,7 +78,58 @@ public class ApiTests
         postResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task WhatsAppMessage_IsImportedThenConfirmedAsATransaction()
+    {
+        var client = _factory.CreateClient();
+        var session = await CreateTenantSessionAsync(client);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+            var paymentMethod = new PaymentMethod { Name = "Nubank", IsCreditCard = true, TenantId = session.TenantId };
+            db.PaymentMethods.Add(paymentMethod);
+            await db.SaveChangesAsync();
+            db.WhatsAppSenders.Add(new WhatsAppSender
+            {
+                PhoneNumber = "5511999999999",
+                TenantId = session.TenantId,
+                OwnerId = session.UserId,
+                DisplayName = "Pessoa de teste"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        const string payload = """{"entry":[{"changes":[{"value":{"messages":[{"id":"wamid.test-1","from":"5511999999999","timestamp":"1785619200","type":"text","text":{"body":"89,90 almoço Nubank"}}]}}]}]}""";
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes("test-app-secret"));
+        var signature = "sha256=" + Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
+        var webhookRequest = new HttpRequestMessage(HttpMethod.Post, "/api/integrations/whatsapp/webhook")
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json")
+        };
+        webhookRequest.Headers.TryAddWithoutValidation("X-Hub-Signature-256", signature);
+        (await client.SendAsync(webhookRequest)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", session.AccessToken);
+        var inbox = await client.GetFromJsonAsync<WhatsAppInboxItem[]>("/api/whatsapp/inbox?status=Pending");
+        inbox.Should().ContainSingle();
+        inbox![0].SuggestedAmount.Should().Be(89.90m);
+        inbox[0].SuggestedPaymentMethodId.Should().NotBeNull();
+
+        var confirmation = await client.PostAsync($"/api/whatsapp/inbox/{inbox[0].Id}/confirm", JsonContent.Create(new { }));
+        confirmation.StatusCode.Should().Be(HttpStatusCode.OK);
+        var confirmationBody = await confirmation.Content.ReadFromJsonAsync<ConfirmationResult>();
+        confirmationBody!.transactionId.Should().BeGreaterThan(0);
+        var transactions = await client.GetFromJsonAsync<Transaction[]>("/api/transactions?year=2026&month=8");
+        transactions.Should().ContainSingle(transaction => transaction.Description == "almoço" && transaction.Amount == 89.90m && transaction.TenantId == session.TenantId);
+    }
+
     private async Task<string> CreateAccessTokenAsync(HttpClient client)
+    {
+        return (await CreateTenantSessionAsync(client)).AccessToken;
+    }
+
+    private async Task<(string AccessToken, string UserId, string TenantId)> CreateTenantSessionAsync(HttpClient client)
     {
         var email = $"categories-{Guid.NewGuid()}@local";
         using var scope = _factory.Services.CreateScope();
@@ -95,8 +148,9 @@ public class ApiTests
         var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Test123!" });
         login.StatusCode.Should().Be(HttpStatusCode.OK);
         var session = await login.Content.ReadFromJsonAsync<LoginResult>();
-        return session!.accessToken;
+        return (session!.accessToken, user.Id, tenant.Id);
     }
 
     private record LoginResult(string accessToken);
+    private record ConfirmationResult(int transactionId);
 }

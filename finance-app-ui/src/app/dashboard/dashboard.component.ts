@@ -44,6 +44,8 @@ export class DashboardComponent implements OnInit {
   selectedPersons: number[] = [];
   months: DashboardMonth[] = [];
   pendingDeletion: any | null = null;
+  // Grouped bills start compact; the user expands only what they want to inspect.
+  private expandedGroups = new Set<string>();
 
   get totalIncome() { return this.months.reduce((total, month) => total + month.totalIncome, 0); }
   get totalExpense() { return this.months.reduce((total, month) => total + month.totalExpense, 0); }
@@ -88,6 +90,11 @@ export class DashboardComponent implements OnInit {
     this.selectedPersons = [];
     this.loadTransactions();
   }
+
+  isGroupExpanded(key: string) { return this.expandedGroups.has(key); }
+  toggleGroup(key: string) { if (this.expandedGroups.has(key)) this.expandedGroups.delete(key); else this.expandedGroups.add(key); }
+  fixedGroupKey(month: DashboardMonth) { return `${month.id}:fixed`; }
+  creditGroupKey(month: DashboardMonth, group: CreditCardGroup) { return `${month.id}:credit:${group.id}`; }
 
   requestDeletion(transaction: any) {
     if (this.hasSeries(transaction)) {
