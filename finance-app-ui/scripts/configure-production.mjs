@@ -1,6 +1,8 @@
 import { writeFile } from 'node:fs/promises';
 
-const apiUrl = process.env.API_URL?.replace(/\/$/, '');
+// API_URL can override this deployed API address in Vercel.
+const defaultApiUrl = 'https://finance-4vj8.onrender.com/api';
+const apiUrl = (process.env.API_URL || defaultApiUrl).replace(/\/$/, '');
 if (!apiUrl || !/^https:\/\//.test(apiUrl)) {
   throw new Error('Defina API_URL com a URL HTTPS pública da API, incluindo /api.');
 }
